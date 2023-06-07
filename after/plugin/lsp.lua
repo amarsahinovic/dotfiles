@@ -1,16 +1,19 @@
 local lsp = require('lsp-zero').preset({})
 
-lsp.ensure_installed({
+local wanted_lsp = {
 	'lua_ls',
-	'elixirls',
-	'erlangls',
-	--'gdscript',
 	'html',
-	--'javascript',
 	'jedi_language_server',
 	'eslint',
-	'zls'
-})
+}
+
+if jit.os == 'Linux' then
+    table.insert(wanted_lsp, 'elixirls')
+    table.insert(wanted_lsp, 'erlangls')
+    table.insert(wanted_lsp, 'zls')
+end
+
+lsp.ensure_installed(wanted_lsp)
 
 local cmp = require('cmp')
 local cmp_select = {behavior = cmp.SelectBehavior.Select}
@@ -44,7 +47,6 @@ lsp.on_attach(function(client, bufnr)
 	vim.keymap.set("n", "<leader>vrr", function() vim.lsp.buf.references() end, opts)
 	vim.keymap.set("n", "<leader>vrn", function() vim.lsp.buf.rename() end, opts)
 	vim.keymap.set("i", "<C-h>", function() vim.lsp.buf.signature_help() end, opts)
-
 end)
 
 -- (Optional) Configure lua language server for neovim

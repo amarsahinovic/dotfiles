@@ -3,8 +3,12 @@ require'nvim-treesitter.configs'.setup {
     ensure_installed = {
         "c", "lua", "vim", "vimdoc", "query", "javascript",
         "elixir", "heex", "eex", "erlang",
-        "python", "zig"
+        "python", "zig",
+        "html", "htmldjango", "gdscript",
+        "dockerfile"
     },
+
+    ignore_install = { "help" },
 
 	-- Install parsers synchronously (only applied to `ensure_installed`)
 	sync_install = false,
