@@ -21,6 +21,7 @@ return require('packer').startup(function(use)
 
     use { 'doums/darcula' }
 
+    use { 'nvim-tree/nvim-tree.lua' }
     use { 'nvim-tree/nvim-web-devicons' }
 
     use('nvim-treesitter/nvim-treesitter',{run = ':TSUpdate'})
@@ -28,6 +29,8 @@ return require('packer').startup(function(use)
     use 'tpope/vim-fugitive'
     use 'airblade/vim-gitgutter'
     use {'akinsho/bufferline.nvim', tag = '*', requires = 'nvim-tree/nvim-web-devicons'}
+
+    use("windwp/nvim-autopairs")
 
     use {
         'VonHeikemen/lsp-zero.nvim',

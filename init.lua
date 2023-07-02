@@ -1,2 +1,1 @@
-require("amar")
-
+require("core")
