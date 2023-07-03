@@ -32,17 +32,6 @@ return require('packer').startup(function(use)
 
   use("windwp/nvim-autopairs")
 
-  use { 'saadparwaiz1/cmp_luasnip' }
-
-  use({
-    "L3MON4D3/LuaSnip",
-    after="nvim-cmp",
-    -- follow latest release.
-    tag = "v1.*", -- Replace <CurrentMajor> by the latest released major (first number of latest release)
-    -- install jsregexp (optional!:).
-    run = "make install_jsregexp"
-  })
-
   use({
     'VonHeikemen/lsp-zero.nvim',
     branch = 'v2.x',
