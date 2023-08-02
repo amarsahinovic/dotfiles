@@ -1,4 +1,4 @@
-wanted_parsers = {
+local wanted_parsers = {
   "bash",
   "c",
   "dockerfile",
