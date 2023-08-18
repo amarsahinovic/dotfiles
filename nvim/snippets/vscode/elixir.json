@@ -130,14 +130,23 @@
     ],
     "description": "LiveView handle_params function"
   },
-	"lv_heex": {
-		"prefix": "h",
-		"body": ["~H\"\"\"", "${0}", "\"\"\""],
+  "lv_heex": {
+    "prefix": "h",
+    "body": [
+      "~H\"\"\"",
+      "${0}",
+      "\"\"\""
+    ],
     "description": "LiveView HEEx template"
   },
   "lv_assign": {
     "prefix": "assign",
-    "body": ["socket =", "  assign(socket,", "    ${1:key}: ${2:value}", "  )"],
+    "body": [
+      "socket =",
+      "  assign(socket,",
+      "    ${1:key}: ${2:value}",
+      "  )"
+    ],
     "description": "LiveView assign"
   },
   "insp": {
@@ -149,5 +158,33 @@
     "prefix": "m",
     "body": "%{\"${1}\" => ${2}}",
     "description": "Elixir map"
+  },
+  "phx_form": {
+    "prefix": "pf",
+    "body": "<.form for={@${1:form}}>${2}</.form>"
+  },
+  "phx_form_submit_change": {
+    "prefix": "pfsc",
+    "body": "<.form for={@${1:form}} phx-submit=\"${2:save}\" phx-change=\"${3:change}\">${4}</.form>${5}"
+  },
+  "phx_form_submit": {
+    "prefix": "pfs",
+    "body": "<.form for={@${1:form}} phx-submit=\"${2:save}\">${3}</.form>${4}"
+  },
+  "phx_form_change": {
+    "prefix": "pfc",
+    "body": "<.form for={@${1:form}} phx-change=\"${2:change}\">${3}</.form>${4}"
+  },
+  "phx_form_input": {
+    "prefix": "pfi",
+    "body": "<.input field={@${1:form}[:${2}]} placeholder=\"${3}\" />${4}"
+  },
+  "phx_form_input_type": {
+    "prefix": "pfit",
+    "body": "<.input field={@${1:form}[:${2}]} type=\"${3:number}\" placeholder=\"${4}\" />${5}"
+  },
+  "phx_form_button_submit": {
+    "prefix": "pfbs",
+    "body": "<.button phx-disable-with=\"${1:Saving...}\">${2:Save}</.button>${3}"
   }
 }
