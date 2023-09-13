@@ -1,5 +1,5 @@
 local wanted_lsp = {
-  "elixir-ls",
+  -- "elixir-ls",
   "erlang-ls",
   "eslint-lsp",
   "html-lsp",
@@ -14,6 +14,9 @@ local wanted_lsp = {
 return {
   "williamboman/mason.nvim",
   opts = function(_, opts)
-    vim.list_extend(opts.ensure_installed, wanted_lsp)
+    return {
+      ensure_installed = vim.list_extend(opts.ensure_installed, wanted_lsp),
+      automatic_installation = false,
+    }
   end,
 }
