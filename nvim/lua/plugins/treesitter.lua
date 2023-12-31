@@ -1,35 +1,13 @@
-local wanted_parsers = {
-  "bash",
-  "c",
-  "dockerfile",
-  "html",
-  "htmldjango",
-  "javascript",
-  "gdscript",
-  "json",
-  "lua",
-  "markdown",
-  "markdown_inline",
-  "python",
-  "query",
-  "regex",
-  "tsx",
-  "typescript",
-  "vim",
-  "yaml",
-}
-
-if jit.os == "Linux" then
-  table.insert(wanted_parsers, "eex")
-  table.insert(wanted_parsers, "elixir")
-  table.insert(wanted_parsers, "erlang")
-  table.insert(wanted_parsers, "heex")
-  table.insert(wanted_parsers, "zig")
-end
-
 return {
-  "nvim-treesitter/nvim-treesitter",
-  opts = {
-    ensure_installed = wanted_parsers,
-  },
+	"nvim-treesitter/nvim-treesitter",
+	build = ":TSUpdate",
+	config = function()
+		local config = require("nvim-treesitter.configs")
+		config.setup({
+			ensure_installed = { "lua", "erlang", "elixir", "heex", "eex", "surface", "html" },
+			highlight = { enable = true },
+			indent = { enable = true },
+			auto_install = true,
+		})
+	end,
 }
