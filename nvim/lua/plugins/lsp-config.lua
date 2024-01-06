@@ -67,9 +67,17 @@ return {
   },
   {
     "williamboman/mason-lspconfig.nvim",
-    opts = {
-      ensure_installed = { "lua_ls", "tsserver", "zls", "erlangls", "pyright" },
-    },
+    opts = function()
+      ensure_installed = { "lua_ls", "tsserver", "pyright" }
+
+      if jit.os == "Linux" then
+        table.insert(ensure_installed, "elixirls")
+        table.insert(ensure_installed, "erlangls")
+        table.insert(ensure_installed, "zls")
+      end
+
+      return { ensure_installed = ensure_installed }
+    end,
   },
   {
     "folke/neodev.nvim",
