@@ -68,7 +68,7 @@ return {
   {
     "williamboman/mason-lspconfig.nvim",
     opts = function()
-      ensure_installed = { "lua_ls", "tsserver", "pyright" }
+      ensure_installed = { "lua_ls", "tsserver", "ruff_lsp", "pyright" }
 
       if jit.os == "Linux" then
         table.insert(ensure_installed, "elixirls")
@@ -109,13 +109,39 @@ return {
         capabilities = capabilities,
         on_attach = on_attach,
       }
+      local ruff_opts = {
+        init_options = {
+          settings = {
+            -- Any extra CLI arguments for `ruff` go here.
+            args = {
+              "--config=~/.config/ruff/pyproject.toml",
+            },
+          },
+        },
+      }
+
+      local pyright_opts = {
+        settings = {
+          pyright = {
+            -- Using Ruff's import organizer
+            disableOrganizeImports = true,
+          },
+          python = {
+            analysis = {
+              -- Ignore all files for analysis to exclusively use Ruff for linting
+              ignore = { '*' },
+            },
+          },
+        },
+      }
 
       lspconfig.lua_ls.setup(opts)
       lspconfig.tsserver.setup(opts)
       lspconfig.zls.setup(opts)
       lspconfig.erlangls.setup(opts)
       lspconfig.lexical.setup(opts)
-      lspconfig.pyright.setup(opts)
+      lspconfig.pyright.setup(vim.tbl_deep_extend("force", opts, pyright_opts))
+      lspconfig.ruff_lsp.setup(vim.tbl_deep_extend("force", opts, ruff_opts))
     end,
   },
 }
