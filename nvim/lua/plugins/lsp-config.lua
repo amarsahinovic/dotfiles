@@ -114,7 +114,7 @@ return {
           settings = {
             -- Any extra CLI arguments for `ruff` go here.
             args = {
-              "--config=~/.config/ruff/pyproject.toml",
+              "--config=~/.config/ruff/pyproject.toml", "--preview",
             },
           },
         },
@@ -141,7 +141,7 @@ return {
       lspconfig.erlangls.setup(opts)
       lspconfig.lexical.setup(opts)
       lspconfig.pyright.setup(vim.tbl_deep_extend("force", opts, pyright_opts))
-      lspconfig.ruff_lsp.setup(vim.tbl_deep_extend("force", opts, ruff_opts))
+      -- lspconfig.ruff_lsp.setup(vim.tbl_deep_extend("force", opts, ruff_opts))
     end,
   },
 }
