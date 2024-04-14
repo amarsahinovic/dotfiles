@@ -541,6 +541,7 @@ require('lazy').setup({
         -- But for many setups, the LSP (`tsserver`) will work just fine
         -- tsserver = {},
         --
+        eslint = {},
 
         lua_ls = {
           -- cmd = {...},
@@ -577,7 +578,7 @@ require('lazy').setup({
             python = {
               analysis = {
                 -- Ignore all files for analysis to exclusively use Ruff for linting
-                ignore = { '*' },
+                -- ignore = { '*' },
               },
             },
           },
@@ -658,7 +659,7 @@ require('lazy').setup({
         --
         -- You can use a sub-list to tell conform to run *until* a formatter
         -- is found.
-        -- javascript = { { "prettierd", "prettier" } },
+        javascript = { { 'prettierd', 'prettier' } },
       },
     },
   },
@@ -687,6 +688,7 @@ require('lazy').setup({
       --  into multiple repos for maintenance purposes.
       'hrsh7th/cmp-nvim-lsp',
       'hrsh7th/cmp-path',
+      'hrsh7th/cmp-buffer',
 
       -- If you want to add a bunch of pre-configured snippets,
       --    you can use this plugin to help you. It even has snippets
@@ -748,6 +750,7 @@ require('lazy').setup({
           end, { 'i', 's' }),
         },
         sources = {
+          { name = 'buffer' },
           { name = 'nvim_lsp' },
           { name = 'luasnip' },
           { name = 'path' },
@@ -762,16 +765,23 @@ require('lazy').setup({
     --
     -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`
     'folke/tokyonight.nvim',
-    lazy = false, -- make sure we load this during startup if it is your main colorscheme
-    priority = 1000, -- make sure to load this before all the other start plugins
-    config = function()
-      -- Load the colorscheme here.
-      -- Like many other themes, this one has different styles, and you could load
-      -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'tokyonight-night'
+    -- lazy = false, -- make sure we load this during startup if it is your main colorscheme
+    -- priority = 1000, -- make sure to load this before all the other start plugins
+    -- config = function()
+    --   -- Load the colorscheme here.
+    --   -- Like many other themes, this one has different styles, and you could load
+    --   -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
+    --   vim.cmd.colorscheme 'tokyonight-night'
+    --
+    --   -- You can configure highlights by doing something like
+    --   vim.cmd.hi 'Comment gui=none'
+    -- end,
+  },
 
-      -- You can configure highlights by doing something like
-      vim.cmd.hi 'Comment gui=none'
+  {
+    'rebelot/kanagawa.nvim',
+    config = function()
+      vim.cmd.colorscheme 'kanagawa'
     end,
   },
 
@@ -811,6 +821,19 @@ require('lazy').setup({
         return '%2l:%-2v'
       end
 
+      require('mini.trailspace').setup()
+
+      vim.api.nvim_create_autocmd('BufWritePre', {
+        desc = 'Trim trailing whitespace on save using mini.trailspace plugin',
+        group = vim.api.nvim_create_augroup('mini-trailspace-trim', { clear = true }),
+        callback = function()
+          MiniTrailspace.trim()
+          MiniTrailspace.trim_last_lines()
+        end,
+      })
+
+      require('mini.indentscope').setup()
+
       -- ... and there is more!
       --  Check out: https://github.com/echasnovski/mini.nvim
     end,
@@ -847,13 +870,6 @@ require('lazy').setup({
       'nvim-telescope/telescope-fzf-native.nvim',
     },
     config = true,
-  },
-  { -- Add indentation guides even on blank lines
-    'lukas-reineke/indent-blankline.nvim',
-    -- Enable `lukas-reineke/indent-blankline.nvim`
-    -- See `:help ibl`
-    main = 'ibl',
-    opts = {},
   },
   {
     'otavioschwanck/arrow.nvim',
