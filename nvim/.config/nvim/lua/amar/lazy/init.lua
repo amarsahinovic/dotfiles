@@ -33,3 +33,7 @@ require('lazy').setup({
     },
   },
 })
+
+-- LSP Debugging
+-- vim.lsp.set_log_level(vim.lsp.log_levels.INFO)
+-- require('vim.lsp.log').set_format_func(vim.inspect)
