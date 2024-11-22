@@ -175,17 +175,7 @@ return {
           },
         },
       },
-      ruff_lsp = {
-        init_options = {
-          settings = {
-            -- Any extra CLI arguments for `ruff` go here.
-            args = {
-              '--config=~/.config/ruff/pyproject.toml',
-              '--preview',
-            },
-          },
-        },
-      },
+      ruff = {},
     }
 
     if jit.os == 'Linux' then
