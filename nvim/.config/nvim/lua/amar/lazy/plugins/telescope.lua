@@ -56,6 +56,7 @@ return {
       --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
       --   },
       -- },
+      defaults = require('telescope.themes').get_ivy(),
       pickers = {
         colorscheme = {
           enable_preview = true,
@@ -65,6 +66,7 @@ return {
         ['ui-select'] = {
           require('telescope.themes').get_dropdown(),
         },
+        fzf = {},
       },
     }
 
@@ -112,5 +114,11 @@ return {
     vim.keymap.set('n', '<leader>sn', function()
       builtin.find_files { cwd = vim.fn.stdpath 'config' }
     end, { desc = '[S]earch [N]eovim files' })
+
+    vim.keymap.set('n', '<leader>sp', function()
+      builtin.find_files { cwd = vim.fn.stdpath 'data' }
+    end, { desc = '[S]earch [P]ackage files' })
+
+    require('amar.telescope.multigrep').setup()
   end,
 }
