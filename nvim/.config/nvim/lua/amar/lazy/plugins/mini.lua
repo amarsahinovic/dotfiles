@@ -16,6 +16,9 @@ return {
     -- - sr)'  - [S]urround [R]eplace [)] [']
     require('mini.surround').setup()
 
+    require('mini.operators').setup()
+    require('mini.pairs').setup()
+
     --require('mini.tabline').setup()
 
     -- Simple and easy statusline.
@@ -45,6 +48,12 @@ return {
     })
 
     require('mini.indentscope').setup()
+    require('mini.bracketed').setup()
+    require('mini.files').setup()
+    require('mini.starter').setup()
+    require('mini.sessions').setup()
+
+    require('mini.icons').setup()
 
     -- ... and there is more!
     --  Check out: https://github.com/echasnovski/mini.nvim
