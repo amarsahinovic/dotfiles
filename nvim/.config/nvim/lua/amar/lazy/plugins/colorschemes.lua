@@ -7,7 +7,7 @@ return {
     name = 'catppuccin',
   },
   {
-    'Mofiqul/dracula.nvim',
+    'maxmx03/dracula.nvim',
   },
   {
     'rebelot/kanagawa.nvim',
