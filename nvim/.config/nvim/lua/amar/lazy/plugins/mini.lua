@@ -52,10 +52,7 @@ return {
     require('mini.files').setup()
     require('mini.starter').setup()
     require('mini.sessions').setup()
-
     require('mini.icons').setup()
-
-    -- ... and there is more!
-    --  Check out: https://github.com/echasnovski/mini.nvim
+    require('mini.comment').setup()
   end,
 }

@@ -3,8 +3,6 @@ return {
 
   { 'tpope/vim-sleuth' }, -- Detect tabstop and shiftwidth automatically
 
-  { 'numToStr/Comment.nvim', opts = {} },
-
   -- Here is a more advanced example where we pass configuration
   -- options to `gitsigns.nvim`. This is equivalent to the following lua:
   --    require('gitsigns').setup({ ... })
@@ -33,6 +31,7 @@ return {
       require('which-key').add {
         { '<leader>c', group = '[C]ode' },
         { '<leader>d', group = '[D]ocument' },
+        { '<leader>d', group = '[F]ile Browser' },
         { '<leader>r', group = '[R]ename' },
         { '<leader>s', group = '[S]earch' },
         { '<leader>w', group = '[W]orkspace' },
@@ -48,20 +47,7 @@ return {
     dependencies = { 'nvim-lua/plenary.nvim' },
     opts = { signs = false },
   },
-  -- {
-  --   'akinsho/bufferline.nvim',
-  --   dependencies = 'nvim-tree/nvim-web-devicons',
-  --   opts = {
-  --     options = {
-  --       -- separator_style = 'slope',
-  --       hover = {
-  --         enabled = true,
-  --         delay = 200,
-  --         reveal = { 'close' },
-  --       },
-  --     },
-  --   },
-  -- },
+
   {
     'Bekaboo/dropbar.nvim',
     -- optional, but required for fuzzy finder support
@@ -77,17 +63,5 @@ return {
       leader_key = ';', -- Recommended to be a single key
     },
     config = true,
-  },
-
-  {
-    'dstein64/nvim-scrollview',
-    config = function(_, opts)
-      require('scrollview').setup(opts)
-      require('scrollview.contrib.gitsigns').setup(opts)
-    end,
-    opts = {
-      always_show = true,
-      -- column = 40,
-    },
   },
 }
