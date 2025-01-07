@@ -47,7 +47,14 @@ return {
       end,
     })
 
-    require('mini.indentscope').setup()
+    indentscope = require 'mini.indentscope'
+    require('mini.indentscope').setup {
+      draw = {
+        delay = 0,
+        animation = indentscope.gen_animation.none(),
+      },
+      symbol = '│',
+    }
     require('mini.bracketed').setup()
     require('mini.files').setup()
     require('mini.starter').setup()

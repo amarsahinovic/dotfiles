@@ -12,13 +12,13 @@ return {
     scroll = { enabled = true },
     gitbrowse = { enabled = true },
   },
-  config = function()
-    vim.api.nvim_create_autocmd('User', {
-      pattern = 'MiniFilesActionRename',
-      callback = function(event)
-        Snacks.rename.on_rename_file(event.data.from, event.data.to)
-      end,
-    })
-    vim.keymap.set('n', '<leader>gb', ':lua Snacks.gitbrowse()<CR>', { desc = '[G]it[B]rowse' })
-  end,
+  -- config = function()
+  --   vim.api.nvim_create_autocmd('User', {
+  --     pattern = 'MiniFilesActionRename',
+  --     callback = function(event)
+  --       Snacks.rename.on_rename_file(event.data.from, event.data.to)
+  --     end,
+  --   })
+  --   vim.keymap.set('n', '<leader>gb', ':lua Snacks.gitbrowse()<CR>', { desc = '[G]it[B]rowse' })
+  -- end,
 }
