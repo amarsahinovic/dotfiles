@@ -11,13 +11,24 @@ return {
   },
   {
     'rebelot/kanagawa.nvim',
-    lazy = false,
-    priority = 1000,
-    config = function()
-      vim.cmd.colorscheme 'dracula'
-    end,
   },
   {
     'maxmx03/solarized.nvim',
+  },
+  {
+    'craftzdog/solarized-osaka.nvim',
+  },
+
+  {
+    'ellisonleao/gruvbox.nvim',
+  },
+  {
+    'loctvl842/monokai-pro.nvim',
+  },
+  {
+    'navarasu/onedark.nvim',
+    opts = {
+      style = 'warmer',
+    },
   },
 }

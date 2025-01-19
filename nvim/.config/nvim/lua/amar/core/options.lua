@@ -70,7 +70,7 @@ vim.opt.inccommand = 'split'
 vim.opt.cursorline = true
 
 -- Minimal number of screen lines to keep above and below the cursor.
-vim.opt.scrolloff = 0
+vim.opt.scrolloff = 999
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
@@ -123,3 +123,24 @@ vim.api.nvim_create_autocmd('TextYankPost', {
     vim.highlight.on_yank()
   end,
 })
+
+-- Let's try to improve hjkl navigation
+vim.keymap.set('n', '<Up>', '<Nop>')
+vim.keymap.set('n', '<Down>', '<Nop>')
+vim.keymap.set('n', '<Left>', '<Nop>')
+vim.keymap.set('n', '<Right>', '<Nop>')
+
+vim.keymap.set('i', '<Up>', '<Nop>')
+vim.keymap.set('i', '<Down>', '<Nop>')
+vim.keymap.set('i', '<Left>', '<Nop>')
+vim.keymap.set('i', '<Right>', '<Nop>')
+
+vim.keymap.set('v', '<Up>', '<Nop>')
+vim.keymap.set('v', '<Down>', '<Nop>')
+vim.keymap.set('v', '<Left>', '<Nop>')
+vim.keymap.set('v', '<Right>', '<Nop>')
+
+vim.keymap.set('c', '<Up>', '<Nop>')
+vim.keymap.set('c', '<Down>', '<Nop>')
+vim.keymap.set('c', '<Left>', '<Nop>')
+vim.keymap.set('c', '<Right>', '<Nop>')

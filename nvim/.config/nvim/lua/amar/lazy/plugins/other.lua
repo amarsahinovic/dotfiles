@@ -9,6 +9,7 @@ return {
   --
   -- See `:help gitsigns` to understand what the configuration keys do
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
+
     'lewis6991/gitsigns.nvim',
     opts = {
       signs = {
@@ -19,6 +20,10 @@ return {
         changedelete = { text = '~' },
       },
     },
+    config = function()
+      require('gitsigns').setup()
+      require('scrollbar.handlers.gitsigns').setup()
+    end,
   },
 
   { -- Useful plugin to show you pending keybinds.
