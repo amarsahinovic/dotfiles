@@ -1,3 +1,7 @@
 font-size = 12
 adjust-cell-height = 35%
 theme = catppuccin-frappe
+
+gtk-titlebar = false
+# gtk-tabs-location = hidden
+keybind = ctrl+shift+x=toggle_tab_overview
