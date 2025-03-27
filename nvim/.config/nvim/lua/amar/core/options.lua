@@ -125,22 +125,22 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 })
 
 -- Let's try to improve hjkl navigation
-vim.keymap.set('n', '<Up>', '<Nop>')
-vim.keymap.set('n', '<Down>', '<Nop>')
-vim.keymap.set('n', '<Left>', '<Nop>')
-vim.keymap.set('n', '<Right>', '<Nop>')
-
-vim.keymap.set('i', '<Up>', '<Nop>')
-vim.keymap.set('i', '<Down>', '<Nop>')
-vim.keymap.set('i', '<Left>', '<Nop>')
-vim.keymap.set('i', '<Right>', '<Nop>')
-
-vim.keymap.set('v', '<Up>', '<Nop>')
-vim.keymap.set('v', '<Down>', '<Nop>')
-vim.keymap.set('v', '<Left>', '<Nop>')
-vim.keymap.set('v', '<Right>', '<Nop>')
-
-vim.keymap.set('c', '<Up>', '<Nop>')
-vim.keymap.set('c', '<Down>', '<Nop>')
-vim.keymap.set('c', '<Left>', '<Nop>')
-vim.keymap.set('c', '<Right>', '<Nop>')
+-- vim.keymap.set('n', '<Up>', '<Nop>')
+-- vim.keymap.set('n', '<Down>', '<Nop>')
+-- vim.keymap.set('n', '<Left>', '<Nop>')
+-- vim.keymap.set('n', '<Right>', '<Nop>')
+--
+-- vim.keymap.set('i', '<Up>', '<Nop>')
+-- vim.keymap.set('i', '<Down>', '<Nop>')
+-- vim.keymap.set('i', '<Left>', '<Nop>')
+-- vim.keymap.set('i', '<Right>', '<Nop>')
+--
+-- vim.keymap.set('v', '<Up>', '<Nop>')
+-- vim.keymap.set('v', '<Down>', '<Nop>')
+-- vim.keymap.set('v', '<Left>', '<Nop>')
+-- vim.keymap.set('v', '<Right>', '<Nop>')
+--
+-- vim.keymap.set('c', '<Up>', '<Nop>')
+-- vim.keymap.set('c', '<Down>', '<Nop>')
+-- vim.keymap.set('c', '<Left>', '<Nop>')
+-- vim.keymap.set('c', '<Right>', '<Nop>')
