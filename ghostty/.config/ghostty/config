@@ -1,3 +1,5 @@
+command = /usr/bin/fish --login --interactive
+
 font-size = 12
 adjust-cell-height = 35%
 theme = catppuccin-frappe
