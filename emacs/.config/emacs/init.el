@@ -20,12 +20,71 @@
 
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
 
+(defun start/display-startup-time ()
+  (message "Emacs loaded in %s with %d garbage collections."
+           (format "%.2f seconds"
+                   (float-time
+					(time-subtract after-init-time before-init-time)))
+           gcs-done))
+
+(add-hook 'emacs-startup-hook #'start/display-startup-time)
+
 (require 'use-package-ensure) ;; Load use-package-always-ensure
 (setq use-package-always-ensure t) ;; Always ensures that a package is installed
+
 (setq package-archives '(("melpa" . "https://melpa.org/packages/") ;; Sets default package repositories
                          ("org" . "https://orgmode.org/elpa/")
                          ("elpa" . "https://elpa.gnu.org/packages/")
                          ("nongnu" . "https://elpa.nongnu.org/nongnu/"))) ;; For Eat Terminal
+
+(setq package-quickstart t) ;; For blazingly fast startup times, this line makes startup miles faster
+
+(use-package emacs
+  :custom
+  (menu-bar-mode nil)         ;; Disable the menu bar
+  (scroll-bar-mode nil)       ;; Disable the scroll bar
+  (tool-bar-mode nil)         ;; Disable the tool bar
+  (inhibit-startup-screen t)  ;; Disable welcome screen
+
+  (delete-selection-mode t)   ;; Select text and delete it by typing.
+  (electric-indent-mode nil)  ;; Turn off the weird indenting that Emacs does by default.
+  (electric-pair-mode t)      ;; Turns on automatic parens pairing
+
+  (blink-cursor-mode nil)     ;; Don't blink cursor
+  (global-auto-revert-mode t) ;; Automatically reload file and show changes if the file has changed
+
+  ;;(dired-kill-when-opening-new-dired-buffer t) ;; Dired don't create new buffer
+  ;;(recentf-mode t) ;; Enable recent file mode
+
+  ;;(global-visual-line-mode t)           ;; Enable truncated lines
+  (display-line-numbers-type 'relative)   ;; Relative line numbers
+  (global-display-line-numbers-mode t)    ;; Display line numbers
+	(column-number-mode t)                  ;; Display column in mode line
+	
+  (mouse-wheel-progressive-speed nil) ;; Disable progressive speed when scrolling
+  (scroll-conservatively 10) ;; Smooth scrolling
+  ;;(scroll-margin 8)
+	
+	(use-short-answers t)  ;; Use short answers (y instead of yes)
+
+  (tab-width 2)
+
+  (make-backup-files nil) ;; Stop creating ~ backup files
+  (auto-save-default nil) ;; Stop creating # auto save files
+  :hook
+  (prog-mode . (lambda () (hs-minor-mode t))) ;; Enable folding hide/show globally
+  :config
+  ;; Move customization variables to a separate file and load it, avoid filling up init.el with unnecessary variables
+  (setq custom-file (locate-user-emacs-file "custom-vars.el"))
+  (load custom-file 'noerror 'nomessage)
+  :bind (
+         ([escape] . keyboard-escape-quit) ;; Makes Escape quit prompts (Minibuffer Escape)
+         ("C-+" . text-scale-increase)
+         ("C--" . text-scale-decrease)
+         ("<C-wheel-up>" . text-scale-increase)
+         ("<C-wheel-down>" . text-scale-decrease))
+
+  )
 
 (use-package evil
   :init ;; Execute code Before a package is loaded
@@ -47,59 +106,62 @@
   :after evil
   :config
   ;; Setting where to use evil-collection
-  (setq evil-collection-mode-list '(dired ibuffer magit corfu vertico consult))
+  (setq evil-collection-mode-list '(dired ibuffer magit corfu vertico consult info))
   (evil-collection-init))
 
 (use-package general
   :config
   (general-evil-setup)
-  ;; Set up 'SPC' as the leader key
+  ;; Set up 'C-SPC' as the leader key
   (general-create-definer start/leader-keys
-    :states '(normal insert visual motion emacs)
+    ;; :states '(normal insert visual motion emacs) ;; <- evil
     :keymaps 'override
-    :prefix "SPC"           ;; Set leader key
-    :global-prefix "C-SPC") ;; Set global leader key
+    :prefix "C-SPC"
+    :global-prefix "C-SPC") ;; Set global leader key so we can access our keybindings from any state
 
   (start/leader-keys
     "." '(find-file :wk "Find file")
     "TAB" '(comment-line :wk "Comment lines")
-    "p" '(projectile-command-map :wk "Projectile command map"))
+    "q" '(flymake-show-buffer-diagnostics :wk "Flymake buffer diagnostic")
+    "c" '(eat :wk "Eat terminal")
+    "p" '(projectile-command-map :wk "Projectile")
+    "s p" '(projectile-discover-projects-in-search-path :wk "Search for projects"))
 
   (start/leader-keys
-    "f" '(:ignore t :wk "Find")
-    "f c" '((lambda () (interactive) (find-file "~/.config/emacs/config.org")) :wk "Edit emacs config")
-    "f r" '(consult-recent-file :wk "Recent files")
-    "f f" '(consult-fd :wk "Fd search for files")
-    "f g" '(consult-ripgrep :wk "Ripgrep search in files")
-    "f l" '(consult-line :wk "Find line")
-    "f i" '(consult-imenu :wk "Imenu buffer locations"))
+    "s" '(:ignore t :wk "Search")
+    "s c" '((lambda () (interactive) (find-file "~/.config/emacs/init.org")) :wk "Find emacs Config")
+    "s r" '(consult-recent-file :wk "Search recent files")
+    "s f" '(consult-fd :wk "Search files with fd")
+    "s g" '(consult-ripgrep :wk "Search with ripgrep")
+    "s l" '(consult-line :wk "Search line")
+    "s i" '(consult-imenu :wk "Search Imenu buffer locations")) ;; This one is really cool
 
   (start/leader-keys
-    "b" '(:ignore t :wk "Buffer Bookmarks")
-    "b b" '(consult-buffer :wk "Switch buffer")
-    "b k" '(kill-this-buffer :wk "Kill this buffer")
-    "b i" '(ibuffer :wk "Ibuffer")
-    "b n" '(next-buffer :wk "Next buffer")
-    "b p" '(previous-buffer :wk "Previous buffer")
-    "b r" '(revert-buffer :wk "Reload buffer")
-    "b j" '(consult-bookmark :wk "Bookmark jump"))
-
-  (start/leader-keys
-    "d" '(:ignore t :wk "Dired")
+    "d" '(:ignore t :wk "Buffers & Dired")
+    "d s" '(consult-buffer :wk "Switch buffer")
+    "d k" '(kill-current-buffer :wk "Kill current buffer")
+    "d i" '(ibuffer :wk "Ibuffer")
+    "d n" '(next-buffer :wk "Next buffer")
+    "d p" '(previous-buffer :wk "Previous buffer")
+    "d r" '(revert-buffer :wk "Reload buffer")
     "d v" '(dired :wk "Open dired")
     "d j" '(dired-jump :wk "Dired jump to current"))
 
   (start/leader-keys
-    "e" '(:ignore t :wk "Eglot Evaluate")
+    "e" '(:ignore t :wk "Languages")
     "e e" '(eglot-reconnect :wk "Eglot Reconnect")
+    "e d" '(eldoc-doc-buffer :wk "Eldoc Buffer")
     "e f" '(eglot-format :wk "Eglot Format")
     "e l" '(consult-flymake :wk "Consult Flymake")
-    "e b" '(eval-buffer :wk "Evaluate elisp in buffer")
-    "e r" '(eval-region :wk "Evaluate elisp in region"))
+    "e r" '(eglot-rename :wk "Eglot Rename")
+    "e i" '(xref-find-definitions :wk "Find definition")
+    "e v" '(:ignore t :wk "Elisp")
+    "e v b" '(eval-buffer :wk "Evaluate elisp in buffer")
+    "e v r" '(eval-region :wk "Evaluate elisp in region"))
 
   (start/leader-keys
     "g" '(:ignore t :wk "Git")
-    "g g" '(magit-status :wk "Magit status"))
+    "g s" '(magit-status :wk "Magit status"))
 
   (start/leader-keys
     "h" '(:ignore t :wk "Help") ;; To get more help use C-h commands (describe variable, function, etc.)
@@ -109,81 +171,32 @@
             :wk "Reload Emacs config"))
 
   (start/leader-keys
-    "s" '(:ignore t :wk "Show")
-    "s e" '(eat :wk "Eat terminal"))
-
-  (start/leader-keys
     "t" '(:ignore t :wk "Toggle")
     "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
-    "t l" '(display-line-numbers-mode :wk "Toggle line numbers")))
-
-(use-package emacs
-  :custom
-  (menu-bar-mode nil)         ;; Disable the menu bar
-  (scroll-bar-mode nil)       ;; Disable the scroll bar
-  (tool-bar-mode nil)         ;; Disable the tool bar
-  ;;(inhibit-startup-screen t)  ;; Disable welcome screen
-
-  (delete-selection-mode t)   ;; Select text and delete it by typing.
-  (electric-indent-mode nil)  ;; Turn off the weird indenting that Emacs does by default.
-  (electric-pair-mode t)      ;; Turns on automatic parens pairing
-
-  (blink-cursor-mode nil)     ;; Don't blink cursor
-  (global-auto-revert-mode t) ;; Automatically reload file and show changes if the file has changed
-
-  ;;(dired-kill-when-opening-new-dired-buffer t) ;; Dired don't create new buffer
-  ;;(recentf-mode t) ;; Enable recent file mode
-
-  ;;(global-visual-line-mode t)           ;; Enable truncated lines
-  ;;(display-line-numbers-type 'relative) ;; Relative line numbers
-  (global-display-line-numbers-mode t)  ;; Display line numbers
-
-  (mouse-wheel-progressive-speed nil) ;; Disable progressive speed when scrolling
-  (scroll-conservatively 10) ;; Smooth scrolling
-  ;;(scroll-margin 8)
-
-  (tab-width 2)
-
-  (make-backup-files nil) ;; Stop creating ~ backup files
-  (auto-save-default nil) ;; Stop creating # auto save files
-  :hook
-  (prog-mode . (lambda () (hs-minor-mode t))) ;; Enable folding hide/show globally
-  :config
-  ;; Move customization variables to a separate file and load it, avoid filling up init.el with unnecessary variables
-  (setq custom-file (locate-user-emacs-file "custom-vars.el"))
-  (load custom-file 'noerror 'nomessage)
-  :bind (
-         ([escape] . keyboard-escape-quit) ;; Makes Escape quit prompts (Minibuffer Escape)
-         )
-  ;; Fix general.el leader key not working instantly in messages buffer with evil mode
-  :ghook ('after-init-hook
-          (lambda (&rest _)
-            (when-let ((messages-buffer (get-buffer "*Messages*")))
-              (with-current-buffer messages-buffer
-                (evil-normalize-keymaps))))
-          nil nil t)
+    "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
   )
 
 ;;(use-package gruvbox-theme
-;;  :config
-;;  (load-theme 'gruvbox-dark-medium t)) ;; We need to add t to trust this package
-(use-package doom-themes
-  :ensure t
-  :config
-  ;; Global settings (defaults)
-  (setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
-        doom-themes-enable-italic t) ; if nil, italics is universally disabled
-  (load-theme 'doom-dracula t)
+    ;;  :config
+    ;;  (load-theme 'gruvbox-dark-medium t)) ;; We need to add t to trust this package
+    (use-package doom-themes
+      :ensure t
+      :config
+      ;; Global settings (defaults)
+      (setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
+            doom-themes-enable-italic t) ; if nil, italics is universally disabled
+      (load-theme 'doom-dracula t)
 
-  ;; Enable flashing mode-line on errors
-  (doom-themes-visual-bell-config)
-  ;; Enable custom neotree theme (all-the-icons must be installed!)
-  (doom-themes-neotree-config)
-  ;; or for treemacs users
-  (setq doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
-  (doom-themes-treemacs-config)
-  ;; Corrects (and improves) org-mode's native fontification.
-  (doom-themes-org-config))
+      
+;; Enable flashing mode-line on errors
+      (doom-themes-visual-bell-config)
+      ;; Enable custom neotree theme (all-the-icons must be installed!)
+      (doom-themes-neotree-config)
+      ;; or for treemacs users
+      (setq doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
+      (doom-themes-treemacs-config)
+      ;; Corrects (and improves) org-mode's native fontification.
+      (doom-themes-org-config))
 
 (add-to-list 'default-frame-alist '(alpha-background . 90)) ;; For all new frames henceforth
 
