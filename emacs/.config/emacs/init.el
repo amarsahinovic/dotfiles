@@ -11,7 +11,7 @@
 (setq gc-cons-threshold (* 50 1000 1000))
 
 (defun start/org-babel-tangle-config ()
-  "Automatically tangle our Emacs.org config file when we save it. Credit to Emacs From Scratch for this one!"
+  "Automaticallyy tangle our Emacs.org config file when we save it. Credit to Emacs From Scratch for this one!"
   (when (string-equal (file-name-directory (buffer-file-name))
                       (expand-file-name user-emacs-directory))
     ;; Dynamic scoping to the rescue
@@ -96,7 +96,6 @@
   (evil-want-C-u-scroll t)      ;; Set C-u to scroll up
   (evil-want-C-i-jump nil)      ;; Disables C-i jump
   (evil-undo-system 'undo-redo) ;; C-r to redo
-  (org-return-follows-link t)   ;; Sets RETURN key in org-mode to follow links
   ;; Unmap keys in 'evil-maps. If not done, org-return-follows-link will not work
   :bind (:map evil-motion-state-map
               ("SPC" . nil)
@@ -111,10 +110,10 @@
 
 (use-package general
   :config
-  (general-evil-setup)
+  (general-evil-setup)  ;; evil
   ;; Set up 'C-SPC' as the leader key
   (general-create-definer start/leader-keys
-    ;; :states '(normal insert visual motion emacs) ;; <- evil
+    :states '(normal insert visual motion emacs) ;; evil
     :keymaps 'override
     :prefix "C-SPC"
     :global-prefix "C-SPC") ;; Set global leader key so we can access our keybindings from any state
@@ -129,7 +128,7 @@
 
   (start/leader-keys
     "s" '(:ignore t :wk "Search")
-    "s c" '((lambda () (interactive) (find-file "~/.config/emacs/init.org")) :wk "Find emacs Config")
+    "s c" '((lambda () (interactive) (find-file "~/.config/emacs/config.org")) :wk "Find emacs Config")
     "s r" '(consult-recent-file :wk "Search recent files")
     "s f" '(consult-fd :wk "Search files with fd")
     "s g" '(consult-ripgrep :wk "Search with ripgrep")
@@ -226,9 +225,18 @@
   (doom-modeline-persp-name t)  ;; Adds perspective name to modeline
   (doom-modeline-persp-icon t)) ;; Adds folder icon next to persp name
 
+(use-package nerd-icons
+  :if (display-graphic-p))
+
+(use-package nerd-icons-dired
+  :hook (dired-mode . (lambda () (nerd-icons-dired-mode t))))
+
+(use-package nerd-icons-ibuffer
+  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
+
 ;; (add-to-list 'exec-path "~/dev/bin/")
-(add-to-list 'exec-path "~/dev/elixir/lexical/_build/dev/package/lexical/bin/")
 (add-to-list 'exec-path "~/.local/bin/")
+(add-to-list 'exec-path "~/dev/bin/")
 
 (use-package projectile
   :init
@@ -254,13 +262,30 @@
 ;;  (add-to-list 'eglot-server-programs
 ;;               `(lua-mode . ("PATH_TO_THE_LSP_FOLDER/bin/lua-language-server" "-lsp"))) ;; Adds our lua lsp server to eglot's server list
 ;;  )
-(use-package
-  eglot
-  :ensure nil
-  :config
-  (add-to-list 'eglot-server-programs '(((elixir-ts-mode heex-ts-mode elixir-mode) . ("start_lexical.sh"))
-                                        ((python-ts-mode) . ("pyright-langserver"))
-                                        )))
+;; (use-package
+;;  eglot
+;;  :ensure nil
+;;  :config
+;;  (add-to-list 'eglot-server-programs 
+;;               '(((elixir-ts-mode heex-ts-mode elixir-mode) . ("expert_linux_amd64"))
+;;                 ((python-ts-mode) . ("pyright-langserver"))))
+;;  )
+
+(with-eval-after-load 'eglot
+	(setf (alist-get '(elixir-mode elixir-ts-mode heex-ts-mode)
+									 eglot-server-programs
+									 nil nil #'equal)
+				(if (and (fboundp 'w32-shell-dos-semantics)
+								 (w32-shell-dos-semantics))
+						'("expert_windows_amd64")
+					(eglot-alternatives
+					 '("expert_linux_amd64" "start_lexical.sh")))))
+
+(use-package sideline-flymake
+  :hook (flymake-mode . sideline-mode)
+  :custom
+  (sideline-flymake-display-mode 'line) ;; Show errors on the current line
+  (sideline-backends-right '(sideline-flymake)))
 
 (use-package yasnippet-snippets
   :hook (prog-mode . yas-minor-mode))
@@ -275,13 +300,63 @@
   (add-hook 'projectile-after-switch-project-hook 'auto-virtualenv-set-virtualenv)  ;; If using projectile
   )
 
-(use-package treesit-auto
-  :ensure t
-  :custom
-  (treesit-auto-install 'prompt)
-  :config
-  (treesit-auto-add-to-auto-mode-alist 'all)
-  (global-treesit-auto-mode))
+(setq treesit-language-source-alist
+      '((bash "https://github.com/tree-sitter/tree-sitter-bash")
+        (cmake "https://github.com/uyha/tree-sitter-cmake")
+        (c "https://github.com/tree-sitter/tree-sitter-c")
+        (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
+        (css "https://github.com/tree-sitter/tree-sitter-css")
+        (elisp "https://github.com/Wilfred/tree-sitter-elisp")
+        (go "https://github.com/tree-sitter/tree-sitter-go")
+        (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
+        (html "https://github.com/tree-sitter/tree-sitter-html")
+        (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
+        (json "https://github.com/tree-sitter/tree-sitter-json")
+        (make "https://github.com/alemuller/tree-sitter-make")
+        (markdown "https://github.com/ikatyang/tree-sitter-markdown")
+        (python "https://github.com/tree-sitter/tree-sitter-python")
+        (rust "https://github.com/tree-sitter/tree-sitter-rust")
+        (toml "https://github.com/tree-sitter/tree-sitter-toml")
+        (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+        (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+        (yaml "https://github.com/ikatyang/tree-sitter-yaml")
+				(heex "https://github.com/phoenixframework/tree-sitter-heex")
+        (elixir "https://github.com/elixir-lang/tree-sitter-elixir")))
+
+(defun start/install-treesit-grammars ()
+  "Install missing treesitter grammars"
+  (interactive)
+  (dolist (grammar treesit-language-source-alist)
+    (let ((lang (car grammar)))
+      (unless (treesit-language-available-p lang)
+        (treesit-install-language-grammar lang)))))
+
+;; Call this function to install missing grammars
+(start/install-treesit-grammars)
+
+;; Optionally, add any additional mode remappings not covered by defaults
+(setq major-mode-remap-alist
+      '((yaml-mode . yaml-ts-mode)
+        (sh-mode . bash-ts-mode)
+        (c-mode . c-ts-mode)
+        (c++-mode . c++-ts-mode)
+        (css-mode . css-ts-mode)
+        (python-mode . python-ts-mode)
+        (mhtml-mode . html-ts-mode)
+        (javascript-mode . js-ts-mode)
+        (json-mode . json-ts-mode)
+        (typescript-mode . typescript-ts-mode)
+        (conf-toml-mode . toml-ts-mode)
+        (elixir-mode . elixir-ts-mode)
+        ))
+
+;; Or if there is no built in mode
+(use-package cmake-ts-mode :ensure nil :mode ("CMakeLists\\.txt\\'" "\\.cmake\\'"))
+(use-package go-ts-mode :ensure nil :mode "\\.go\\'")
+(use-package go-mod-ts-mode :ensure nil :mode "\\.mod\\'")
+(use-package rust-ts-mode :ensure nil :mode "\\.rs\\'")
+(use-package tsx-ts-mode :ensure nil :mode "\\.tsx\\'")
+(use-package elixir-ts-mode :ensure nil :mode ("\\.exs\\'" "\\.ex\\'"))
 
 (use-package lua-mode
   :mode "\\.lua\\'") ;; Only start in a lua file
@@ -299,22 +374,6 @@
   ;;              (setq-local electric-pair-inhibit-predicate
   ;;                          `(lambda (c)
   ;;                             (if (char-equal c ?<) t (,electric-pair-inhibit-predicate c))))))
-  )
-
-(use-package
-  emacs
-  :ensure nil
-  :custom
-
-  ;; Should use:
-  ;; (mapc #'treesit-install-language-grammar (mapcar #'car treesit-language-source-alist))
-  ;; at least once per installation or while changing this list
-  (treesit-language-source-alist
-   '((heex . ("https://github.com/phoenixframework/tree-sitter-heex"))
-     (elixir . ("https://github.com/elixir-lang/tree-sitter-elixir"))))
-
-  (major-mode-remap-alist
-   '((elixir-mode . elixir-ts-mode)))
   )
 
 (use-package
@@ -355,15 +414,6 @@
 
 ;; (start/hello)
 
-(use-package nerd-icons
-  :if (display-graphic-p))
-
-(use-package nerd-icons-dired
-  :hook (dired-mode . (lambda () (nerd-icons-dired-mode t))))
-
-(use-package nerd-icons-ibuffer
-  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
-
 (use-package magit
   :commands magit-status)
 
@@ -389,9 +439,15 @@
   ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
   ;; (corfu-scroll-margin 5)        ;; Use scroll margin
   (completion-ignore-case t)
+
+  ;; Emacs 30 and newer: Disable Ispell completion function.
+  ;; Try `cape-dict' as an alternative.
+  (text-mode-ispell-word-completion nil)
+  
   ;; Enable indentation+completion using the TAB key.
   ;; `completion-at-point' is often bound to M-TAB.
   (tab-always-indent 'complete)
+
   (corfu-preview-current nil) ;; Don't insert completion without confirmation
   ;; Recommended: Enable Corfu globally.  This is recommended since Dabbrev can
   ;; be used globally (M-/).  See also the customization variable
@@ -499,6 +555,17 @@
   (setq consult-project-function (lambda (_) (projectile-project-root)))
    ;;;; 5. No project support
   ;; (setq consult-project-function nil)
+  )
+
+(use-package helpful
+  :bind
+  ;; Note that the built-in `describe-function' includes both functions
+  ;; and macros. `helpful-function' is functions only, so we provide
+  ;; `helpful-callable' as a drop-in replacement.
+  ("C-h f" . helpful-callable)
+  ("C-h v" . helpful-variable)
+  ("C-h k" . helpful-key)
+  ("C-h x" . helpful-command)
   )
 
 (use-package treemacs
@@ -630,6 +697,9 @@
   (which-key-idle-delay 0.8)       ;; Set the time delay (in seconds) for the which-key popup to appear
   (which-key-max-description-length 25)
   (which-key-allow-imprecise-window-fit nil)) ;; Fixes which-key window slipping out in Emacs Daemon
+
+(use-package ws-butler
+  :init (ws-butler-global-mode))
 
 ;; Make gc pauses faster by decreasing the threshold.
 (setq gc-cons-threshold (* 2 1000 1000))

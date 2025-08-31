@@ -7,6 +7,8 @@
 
 * Table Of Contents :toc:
 - [[#introduction][Introduction]]
+  - [[#where-to-start][Where to start?]]
+  - [[#getting-help][Getting Help]]
 - [[#core-setup-and-performance][Core setup and performance]]
   - [[#startup-performance][Startup Performance]]
   - [[#auto-tangle-configuration-file][Auto-tangle Configuration file]]
@@ -56,16 +58,81 @@
 - [[#runtime-performance][Runtime Performance]]
 
 * Introduction
-#+begin_src emacs-lisp
-    ;; Kickstart.emacs is *not* a distribution.
-    ;; It's a template for your own configuration.
+** Where to start?
+First I recommend starting with the Emacs tutorial with the following keybinding: C-h t
+Or running the command with M-x: help-with-tutorial
+Even if you plan on using Vim keybindings later on, it's a good idea to learn the standard Emacs keybindings.
+If you already know the standard Emacs keybindings, you can skip this step.
 
-    ;; It is *recommeded* to configure it from the *config.org* file.
-    ;; The goal is that you read every line, top-to-bottom, understand
-    ;; what your configuration is doing, and modify it to suit your needs.
+After you completed that, you should start learning Emacs lisp.
+It is not necessary to know elisp, but I recommend it. It will open up a whole new world, trust me.
+I used Emacs and Neovim without knowing much about the core language and just copy pasting packages or plugins.
+But after learning the fundamentals you can customize basically anything and I really mean ANYTHING.
 
-    ;; You can delete this when you're done. It's your config now. :)
-#+end_src
+This will look daunting at first, but don't be scared. This is why I am here.
+Elisp is not harder than lua or any other language.
+
+If you don't know anything about elisp, I recommend taking some time to read through
+a guide. One possible example which will only take 10-15 minutes:
+https://learnxinyminutes.com/elisp/
+
+Or if you want to know everything about elisp:
+https://www.gnu.org/software/emacs/manual/html_node/eintr/
+
+** Getting Help
+If you get stuck or confused about something, you're in luck:
+Because Emacs has a really good help functionality.
+Everything under C-h is used for help keybindings.
+
+Using the following keybind: C-h C-h
+Or running the following command M-x: help-for-help
+Will open up the Emacs help for help menu (I know it's a really creative name :D).
+This is the central place where you can see all possible commands you can use when you are stuck.
+
+The most used commands for me are:
+- C-h v Describe variable
+- C-h f Describe function
+- C-h k Describe key
+
+Other also really useful ones:
+- C-h i Show all installed manuals
+- C-h r Emacs manual
+- C-h a Search for commands (see also M-x: Apropos)
+- C-h m Show help for current major and minor modes
+
+These commands should be the first thing you use when you're stuck or confused with something.
+
+*** Searching the manual
+The manual has a specific mode called info-mode.
+Which has useful features you can use.
+For more about info-mode: C-h f: info-mode
+
+Basic navigation:
+- d key: Go back to the top-level Info Directory.
+- u key: Go up to the parent node in the document's hierarchy.
+- n key: for next node in the current manual.
+- p key: for previous node in the current manual.
+
+*Note:* A Node is essentially a specific section or topic, much like a chapter or subsection in a book.
+
+When you are browsing through the Emacs manual you can easily search with:
+- i key: for specific subjects in the current manual.
+- g key: for nodes (sections).
+- m key: for menu items within the current Info buffer.
+- s key: for regular expression patterns (like words) within the current Info buffer.
+
+For evil users after setting up evil collection for info mode:
+- g-j: for next node in the current manual.
+- g-k: for previous node in the current manual.
+- g-G: for nodes (sections).
+- g-m: for menu items within the current Info buffer.
+- The other keybinds are the same
+To see all the evil [[https://github.com/emacs-evil/evil-collection/blob/master/modes/info/evil-collection-info.el][keybindings]] for info mode.
+
+Using goto-node:
+- Specify a Manual: If you want to search within a particular manual, place its name in parentheses like (emacs).
+- After that tell where you want to go in that manual. For example (emacs)Top, (emacs)specific section.
+- If you don't type a manual name, goto-node will search the currently opened manual.
 
 * Core setup and performance
 ** Startup Performance
@@ -87,12 +154,16 @@ This function checks to see if the file being saved is the Emacs.org file you’
 automatically exports the configuration here to the associated output files.
 #+begin_src emacs-lisp
     (defun start/org-babel-tangle-config ()
-      "Automatically tangle our Emacs.org config file when we save it. Credit to Emacs From Scratch for this one!"
+      "Automatically tangle our init.org config file and refresh package-quickstart when we save it. Credit to Emacs From Scratch for this one!"
+      (interactive)
       (when (string-equal (file-name-directory (buffer-file-name))
                           (expand-file-name user-emacs-directory))
         ;; Dynamic scoping to the rescue
         (let ((org-confirm-babel-evaluate nil))
-          (org-babel-tangle))))
+          (org-babel-tangle)
+          (package-quickstart-refresh)
+          )
+        ))
 
     (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
 #+end_src
@@ -416,8 +487,8 @@ While nerd-icons supports both GUI and TUI.
 Add a path for custom binaries
 #+begin_src emacs-lisp
   ;; (add-to-list 'exec-path "~/dev/bin/")
-  (add-to-list 'exec-path "~/dev/elixir/lexical/_build/dev/package/lexical/bin/")
   (add-to-list 'exec-path "~/.local/bin/")
+  (add-to-list 'exec-path "~/dev/bin/")
 #+end_src
 
 ** Projectile
@@ -466,14 +537,24 @@ Use visual block to uncomment easily in Org documents (C-v).
     ;;  (add-to-list 'eglot-server-programs
     ;;               `(lua-mode . ("PATH_TO_THE_LSP_FOLDER/bin/lua-language-server" "-lsp"))) ;; Adds our lua lsp server to eglot's server list
     ;;  )
-    (use-package
-      eglot
-      :ensure nil
-      :config
-      (add-to-list 'eglot-server-programs 
-                   '(((elixir-ts-mode heex-ts-mode elixir-mode) . ("start_lexical.sh"))
-                     ((python-ts-mode) . ("pyright-langserver"))))
-      )
+    ;; (use-package
+    ;;  eglot
+    ;;  :ensure nil
+    ;;  :config
+    ;;  (add-to-list 'eglot-server-programs 
+    ;;               '(((elixir-ts-mode heex-ts-mode elixir-mode) . ("expert_linux_amd64"))
+    ;;                 ((python-ts-mode) . ("pyright-langserver"))))
+    ;;  )
+    
+    (with-eval-after-load 'eglot
+    	(setf (alist-get '(elixir-mode elixir-ts-mode heex-ts-mode)
+    									 eglot-server-programs
+    									 nil nil #'equal)
+    				(if (and (fboundp 'w32-shell-dos-semantics)
+    								 (w32-shell-dos-semantics))
+    						'("expert_windows_amd64")
+    					(eglot-alternatives
+    					 '("expert_linux_amd64" "start_lexical.sh")))))
 #+end_src
 
 ** Sideline-flymake
@@ -576,6 +657,7 @@ Setup Treesit-Auto to automatically install TS grammars and configure major mode
     (use-package go-mod-ts-mode :ensure nil :mode "\\.mod\\'")
     (use-package rust-ts-mode :ensure nil :mode "\\.rs\\'")
     (use-package tsx-ts-mode :ensure nil :mode "\\.tsx\\'")
+    (use-package elixir-ts-mode :ensure nil :mode ("\\.exs\\'" "\\.ex\\'"))
 #+end_src
 
 ** Language modes
@@ -617,11 +699,6 @@ much like the literate programming ideas that Donald Knuth made famous.
 *** Elixir mode
 Setup Elixir mode using elixir-ts-mode and treesiter grammar
 #+begin_src emacs-lisp
-    (use-package
-      emacs
-      :ensure nil
-      :custom
-
     (use-package
       elixir-ts-mode
       :hook (elixir-ts-mode . eglot-ensure)
