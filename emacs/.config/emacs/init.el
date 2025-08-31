@@ -1,22 +1,17 @@
-;; Kickstart.emacs is *not* a distribution.
-;; It's a template for your own configuration.
-
-;; It is *recommeded* to configure it from the *config.org* file.
-;; The goal is that you read every line, top-to-bottom, understand
-;; what your configuration is doing, and modify it to suit your needs.
-
-;; You can delete this when you're done. It's your config now. :)
-
 ;; The default is 800 kilobytes. Measured in bytes.
 (setq gc-cons-threshold (* 50 1000 1000))
 
 (defun start/org-babel-tangle-config ()
-  "Automaticallyy tangle our Emacs.org config file when we save it. Credit to Emacs From Scratch for this one!"
+  "Automatically tangle our init.org config file and refresh package-quickstart when we save it. Credit to Emacs From Scratch for this one!"
+  (interactive)
   (when (string-equal (file-name-directory (buffer-file-name))
                       (expand-file-name user-emacs-directory))
     ;; Dynamic scoping to the rescue
     (let ((org-confirm-babel-evaluate nil))
-      (org-babel-tangle))))
+      (org-babel-tangle)
+      (package-quickstart-refresh)
+      )
+    ))
 
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
 
@@ -128,7 +123,7 @@
 
   (start/leader-keys
     "s" '(:ignore t :wk "Search")
-    "s c" '((lambda () (interactive) (find-file "~/.config/emacs/config.org")) :wk "Find emacs Config")
+    "s c" '((lambda () (interactive) (find-file "~/.config/emacs/init.org")) :wk "Find emacs Config")
     "s r" '(consult-recent-file :wk "Search recent files")
     "s f" '(consult-fd :wk "Search files with fd")
     "s g" '(consult-ripgrep :wk "Search with ripgrep")
