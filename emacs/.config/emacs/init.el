@@ -2,16 +2,16 @@
 (setq gc-cons-threshold (* 50 1000 1000))
 
 (defun start/org-babel-tangle-config ()
-  "Automatically tangle our init.org config file and refresh package-quickstart when we save it. Credit to Emacs From Scratch for this one!"
+  "Automatically tangle our init.org config file and refresh package-quickstart when we save it."
   (interactive)
-  (when (string-equal (file-name-directory (buffer-file-name))
-                      (expand-file-name user-emacs-directory))
-    ;; Dynamic scoping to the rescue
+  (when (and (buffer-file-name)  ;; This handles nil buffer-file-name
+             ;; Use file-truename to handle simlinks (eg. when using GNU stow)
+             ;; Use equal instead of string-equal as file-truename returns list-like structure
+             (equal (file-truename (file-name-directory (buffer-file-name)))
+                    (file-truename (expand-file-name user-emacs-directory))))
     (let ((org-confirm-babel-evaluate nil))
       (org-babel-tangle)
-      (package-quickstart-refresh)
-      )
-    ))
+      (package-quickstart-refresh))))
 
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
 
