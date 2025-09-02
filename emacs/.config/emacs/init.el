@@ -257,14 +257,13 @@
 ;;  (add-to-list 'eglot-server-programs
 ;;               `(lua-mode . ("PATH_TO_THE_LSP_FOLDER/bin/lua-language-server" "-lsp"))) ;; Adds our lua lsp server to eglot's server list
 ;;  )
-;; (use-package
-;;  eglot
-;;  :ensure nil
-;;  :config
-;;  (add-to-list 'eglot-server-programs 
-;;               '(((elixir-ts-mode heex-ts-mode elixir-mode) . ("expert_linux_amd64"))
-;;                 ((python-ts-mode) . ("pyright-langserver"))))
-;;  )
+(use-package
+  eglot
+  :ensure nil
+  :config
+  (add-to-list 'eglot-server-programs
+               '(((python-ts-mode) . ("pyright-langserver"))))
+  )
 
 (with-eval-after-load 'eglot
 	(setf (alist-get '(elixir-mode elixir-ts-mode heex-ts-mode)
@@ -327,7 +326,7 @@
         (treesit-install-language-grammar lang)))))
 
 ;; Call this function to install missing grammars
-(start/install-treesit-grammars)
+;; (start/install-treesit-grammars)
 
 ;; Optionally, add any additional mode remappings not covered by defaults
 (setq major-mode-remap-alist
