@@ -195,14 +195,14 @@
 (add-to-list 'default-frame-alist '(alpha-background . 90)) ;; For all new frames henceforth
 
 (set-face-attribute 'default nil
-                    :font "JetBrains Mono" ;; Set your favorite type of font or download JetBrains Mono
+                    :font "JetBrainsMono Nerd Font" ;; Set your favorite type of font or download JetBrains Mono
                     :height 130
                     :weight 'medium)
 ;; This sets the default font on all graphical frames created after restarting Emacs.
 ;; Does the same thing as 'set-face-attribute default' above, but emacsclient fonts
 ;; are not right unless I also add this method of setting the default font.
 
-(add-to-list 'default-frame-alist '(font . "JetBrains Mono")) ;; Set your favorite font
+(add-to-list 'default-frame-alist '(font . "JetBrainsMono Nerd Font")) ;; Set your favorite font
 (setq-default line-spacing 0.22)
 
 (use-package emacs
@@ -370,6 +370,12 @@
   ;;                             (if (char-equal c ?<) t (,electric-pair-inhibit-predicate c))))))
   )
 
+(use-package markdown-mode
+  :ensure t
+  :mode ("README\\.md\\'" . gfm-mode)
+  :init (setq markdown-command "multimarkdown")
+  )
+
 (use-package
   elixir-ts-mode
   :hook (elixir-ts-mode . eglot-ensure)
@@ -398,6 +404,31 @@
 (use-package org-tempo
   :ensure nil
   :after org)
+
+(defun start/mistral-get-bearer-token ()
+  "Retrieves and returns the bearer token for Mistral API."
+  (interactive)
+  ;; This data should be store in ~/.authinfo in the following format:
+	;; machine api.mistral.ai login bearer password api-key-goes-here
+  (let* ((auth-data (car (auth-source-search :max 1 :host "api.mistral.ai" :user "bearer")))
+         (secret-function (plist-get auth-data :secret)))
+    (funcall secret-function)))
+
+(use-package gptel
+  :ensure t
+  :config
+  ;;(setq gptel-model 'mistral-small) ;; Or a specific Mistral model like 'mistral-medium'
+  ;; (setq gptel-backend 'mistral)
+
+  (setq gptel-model   'mistral-small 
+        gptel-backend
+        (gptel-make-openai "MistralLeChat"  ;Any name you want
+          :host "api.mistral.ai"
+          :endpoint "/v1/chat/completions"
+          :protocol "https"
+          :key (start/mistral-get-bearer-token)              ;can be a function that returns the key
+          :models '("mistral-small")))	
+  )
 
 (use-package eat
   :hook ('eshell-load-hook #'eat-eshell-mode))
