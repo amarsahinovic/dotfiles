@@ -35,11 +35,11 @@
 (setq package-quickstart t) ;; For blazingly fast startup times, this line makes startup miles faster
 
 (use-package emacs
-  :custom
-  (menu-bar-mode nil)         ;; Disable the menu bar
-  (scroll-bar-mode nil)       ;; Disable the scroll bar
-  (tool-bar-mode nil)         ;; Disable the tool bar
-  (inhibit-startup-screen t)  ;; Disable welcome screen
+	:custom
+	(menu-bar-mode nil)         ;; Disable the menu bar
+	(scroll-bar-mode nil)       ;; Disable the scroll bar
+	(tool-bar-mode nil)         ;; Disable the tool bar
+	(inhibit-startup-screen t)  ;; Disable welcome screen
 
   (delete-selection-mode t)   ;; Select text and delete it by typing.
   (electric-indent-mode nil)  ;; Turn off the weird indenting that Emacs does by default.
@@ -55,11 +55,11 @@
   (display-line-numbers-type 'relative)   ;; Relative line numbers
   (global-display-line-numbers-mode t)    ;; Display line numbers
 	(column-number-mode t)                  ;; Display column in mode line
-	
+
   (mouse-wheel-progressive-speed nil) ;; Disable progressive speed when scrolling
   (scroll-conservatively 10) ;; Smooth scrolling
   ;;(scroll-margin 8)
-	
+
 	(use-short-answers t)  ;; Use short answers (y instead of yes)
 
   (tab-width 2)
@@ -113,6 +113,14 @@
     :prefix "C-SPC"
     :global-prefix "C-SPC") ;; Set global leader key so we can access our keybindings from any state
 
+  (start/leader-keys
+    "a" '(:ignore t :wk "AI")
+    "a a" '(aidermacs-transient-menu :wk "Aider")
+    "a g" '(:ignore :wk "Gptel")
+
+    "a g m" '(gptel-menu :wk "Menu")
+    "a g s" '(gptel-send :wk "Send"))
+	
   (start/leader-keys
     "." '(find-file :wk "Find file")
     "TAB" '(comment-line :wk "Comment lines")
@@ -171,32 +179,39 @@
   )
 
 ;;(use-package gruvbox-theme
-    ;;  :config
-    ;;  (load-theme 'gruvbox-dark-medium t)) ;; We need to add t to trust this package
-    (use-package doom-themes
-      :ensure t
-      :config
-      ;; Global settings (defaults)
-      (setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
-            doom-themes-enable-italic t) ; if nil, italics is universally disabled
-      (load-theme 'doom-dracula t)
+;;  :config
+;;  (load-theme 'gruvbox-dark-medium t)) ;; We need to add t to trust this package
+(use-package doom-themes
+	:ensure t
+	:config
+	;; Global settings (defaults)
+	(setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
+				doom-themes-enable-italic t) ; if nil, italics is universally disabled
+	(load-theme 'modus-vivendi-tinted t)
 
-      
-;; Enable flashing mode-line on errors
-      (doom-themes-visual-bell-config)
-      ;; Enable custom neotree theme (all-the-icons must be installed!)
-      (doom-themes-neotree-config)
-      ;; or for treemacs users
-      (setq doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
-      (doom-themes-treemacs-config)
-      ;; Corrects (and improves) org-mode's native fontification.
-      (doom-themes-org-config))
+  
+	;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+  ;; Enable custom neotree theme (all-the-icons must be installed!)
+  (doom-themes-neotree-config)
+  ;; or for treemacs users
+  (setq doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
+  (doom-themes-treemacs-config)
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
+
+(use-package ultra-scroll
+	:init
+	(setq scroll-conservatively 101
+				scroll-margin 0)        ; important: scroll-margin>0 not yet supported
+	:config
+	(ultra-scroll-mode 1))
 
 (add-to-list 'default-frame-alist '(alpha-background . 90)) ;; For all new frames henceforth
 
 (set-face-attribute 'default nil
                     :font "JetBrainsMono Nerd Font" ;; Set your favorite type of font or download JetBrains Mono
-                    :height 130
+                    :height 80
                     :weight 'medium)
 ;; This sets the default font on all graphical frames created after restarting Emacs.
 ;; Does the same thing as 'set-face-attribute default' above, but emacsclient fonts
@@ -258,12 +273,12 @@
 ;;               `(lua-mode . ("PATH_TO_THE_LSP_FOLDER/bin/lua-language-server" "-lsp"))) ;; Adds our lua lsp server to eglot's server list
 ;;  )
 (use-package
-  eglot
-  :ensure nil
-  :config
-  (add-to-list 'eglot-server-programs
-               '(((python-ts-mode) . ("pyright-langserver"))))
-  )
+	eglot
+	:ensure nil
+	:config
+	(add-to-list 'eglot-server-programs
+							 '(((python-ts-mode) . ("pyright-langserver"))))
+	)
 
 (with-eval-after-load 'eglot
 	(setf (alist-get '(elixir-mode elixir-ts-mode heex-ts-mode)
@@ -276,10 +291,10 @@
 					 '("expert_linux_amd64" "start_lexical.sh")))))
 
 (use-package sideline-flymake
-  :hook (flymake-mode . sideline-mode)
-  :custom
-  (sideline-flymake-display-mode 'line) ;; Show errors on the current line
-  (sideline-backends-right '(sideline-flymake)))
+	:hook (flymake-mode . sideline-mode)
+	:custom
+	(sideline-flymake-display-mode 'line) ;; Show errors on the current line
+	(sideline-backends-right '(sideline-flymake)))
 
 (use-package yasnippet-snippets
   :hook (prog-mode . yas-minor-mode))
@@ -306,6 +321,7 @@
         (html "https://github.com/tree-sitter/tree-sitter-html")
         (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
         (json "https://github.com/tree-sitter/tree-sitter-json")
+				(lua "https://github.com/tjdevries/tree-sitter-lua")
         (make "https://github.com/alemuller/tree-sitter-make")
         (markdown "https://github.com/ikatyang/tree-sitter-markdown")
         (python "https://github.com/tree-sitter/tree-sitter-python")
@@ -339,6 +355,7 @@
         (mhtml-mode . html-ts-mode)
         (javascript-mode . js-ts-mode)
         (json-mode . json-ts-mode)
+        (lua-mode . lua-ts-mode)
         (typescript-mode . typescript-ts-mode)
         (conf-toml-mode . toml-ts-mode)
         (elixir-mode . elixir-ts-mode)
@@ -382,15 +399,14 @@
   (elixir-ts-mode
    .
    (lambda ()
-     (push '(">=" . ?\u2265) prettify-symbols-alist)
-     (push '("<=" . ?\u2264) prettify-symbols-alist)
-     (push '("!=" . ?\u2260) prettify-symbols-alist)
-     (push '("==" . ?\u2A75) prettify-symbols-alist)
-     (push '("=~" . ?\u2245) prettify-symbols-alist)
-     (push '("<-" . ?\u2190) prettify-symbols-alist)
-     (push '("->" . ?\u2192) prettify-symbols-alist)
-     (push '("<-" . ?\u2190) prettify-symbols-alist)
-     (push '("|>" . ?\u25B7) prettify-symbols-alist)))
+     (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
+     (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
+     (push '("!=" . ?\u2260) prettify-symbols-alist)  ;; ≠
+     (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ≝
+     (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≈
+     (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
+     (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
+     (push '("|>" . ?\u25B7) prettify-symbols-alist))) ;; ▷
   (before-save . eglot-format))
 
 (use-package toc-org
@@ -405,29 +421,81 @@
   :ensure nil
   :after org)
 
-(defun start/mistral-get-bearer-token ()
-  "Retrieves and returns the bearer token for Mistral API."
-  (interactive)
-  ;; This data should be store in ~/.authinfo in the following format:
+(defun start/get-authinfo-secret (host user)
+  "Retrieves and returns the secret from .authinfo given a host and user parameters"
+  ;; THIS data should be store in ~/.authinfo in the following format:
 	;; machine api.mistral.ai login bearer password api-key-goes-here
-  (let* ((auth-data (car (auth-source-search :max 1 :host "api.mistral.ai" :user "bearer")))
+  (let* ((auth-data (car (auth-source-search :max 1 :host host :user user)))
          (secret-function (plist-get auth-data :secret)))
     (funcall secret-function)))
 
-(use-package gptel
-  :ensure t
-  :config
-  ;;(setq gptel-model 'mistral-small) ;; Or a specific Mistral model like 'mistral-medium'
-  ;; (setq gptel-backend 'mistral)
+(defun start/api-mistral-get-bearer-token ()
+  "Retrieves and returns the bearer token for Mistral API."
+  (interactive)
+	(start/get-authinfo-secret "api.mistral.ai" "bearer"))
 
-  (setq gptel-model   'mistral-small 
+(defun start/codestral-mistral-get-bearer-token ()
+  "Retrieves and returns the bearer token for Mistral Codestrap API."
+  (interactive)
+	(start/get-authinfo-secret "codestral.mistral.ai" "bearer"))
+
+(use-package gptel
+	:ensure t
+	:config
+	;;(setq gptel-model 'mistral-small) ;; Or a specific Mistral model like 'mistral-medium'
+	;; (setq gptel-backend 'mistral)
+
+  (setq gptel-model   'mistral-small
         gptel-backend
         (gptel-make-openai "MistralLeChat"  ;Any name you want
           :host "api.mistral.ai"
           :endpoint "/v1/chat/completions"
           :protocol "https"
-          :key (start/mistral-get-bearer-token)              ;can be a function that returns the key
-          :models '("mistral-small")))	
+          :key (start/api-mistral-get-bearer-token)              ;can be a function that returns the key
+          :models '("mistral-small")))
+  )
+
+(use-package aidermacs
+  :ensure t
+  :bind (("C-c a" . aidermacs-transient-menu))
+  :config
+  (setenv "MISTRAL_API_KEY" (start/api-mistral-get-bearer-token))
+  :custom
+  ; See the Configuration section below
+  (aidermacs-default-chat-mode 'architect)
+  (aidermacs-default-model "mistral/mistral-medium-latest")
+	(setq aidermacs-architect-model "mistral/devstral-medium-2507")
+	(setq aidermacs-editor-model "mistral/devstral-medium-2507")
+	(setq aidermacs-show-diff-after-change nil)
+  )
+
+(use-package minuet
+  :ensure t
+  :bind
+  (("M-y" . #'minuet-complete-with-minibuffer) ;; use minibuffer for completion
+   ("M-i" . #'minuet-show-suggestion) ;; use overlay for completion
+   ("C-c m" . #'minuet-configure-provider)
+   :map minuet-active-mode-map
+   ;; These keymaps activate only when a minuet suggestion is displayed in the current buffer
+   ("M-p" . #'minuet-previous-suggestion) ;; invoke completion or cycle to next completion
+   ("M-n" . #'minuet-next-suggestion) ;; invoke completion or cycle to previous completion
+   ("M-A" . #'minuet-accept-suggestion) ;; accept whole completion
+   ;; Accept the first line of completion, or N lines with a numeric-prefix:
+   ;; e.g. C-u 2 M-a will accepts 2 lines of completion.
+   ("M-a" . #'minuet-accept-suggestion-line)
+   ("M-e" . #'minuet-dismiss-suggestion))
+
+  :init
+  ;; if you want to enable auto suggestion.
+  ;; Note that you can manually invoke completions without enable minuet-auto-suggestion-mode
+  (add-hook 'prog-mode-hook #'minuet-auto-suggestion-mode)
+
+  :config
+  (setenv "CODESTRAL_API_KEY" (start/codestral-mistral-get-bearer-token))
+  ;; You can use M-x minuet-configure-provider to interactively configure provider and model
+  (setq minuet-provider 'codestral)
+  (minuet-set-optional-options minuet-codestral-options :stop ["\n\n"])
+  (minuet-set-optional-options minuet-codestral-options :max_tokens 256)
   )
 
 (use-package eat
@@ -468,7 +536,7 @@
   ;; Emacs 30 and newer: Disable Ispell completion function.
   ;; Try `cape-dict' as an alternative.
   (text-mode-ispell-word-completion nil)
-  
+
   ;; Enable indentation+completion using the TAB key.
   ;; `completion-at-point' is often bound to M-TAB.
   (tab-always-indent 'complete)
@@ -626,7 +694,7 @@
           treemacs-move-forward-on-expand          nil
           treemacs-no-png-images                   nil
           treemacs-no-delete-other-windows         t
-          treemacs-project-follow-cleanup          nil
+          treemacs-project-follow-cleanup          t
           treemacs-persist-file                    (expand-file-name ".cache/treemacs-persist" user-emacs-directory)
           treemacs-position                        'left
           treemacs-read-string-input               'from-child-frame
@@ -660,6 +728,7 @@
     ;;(treemacs-resize-icons 44)
 
     (treemacs-follow-mode t)
+    (treemacs-project-follow-mode t)
     (treemacs-filewatch-mode t)
     (treemacs-fringe-indicator-mode 'always)
     (when treemacs-python-executable
