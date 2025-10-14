@@ -276,6 +276,8 @@ line in the Auto-tangle hook.
       (load custom-file 'noerror 'nomessage)
       :bind (
              ([escape] . keyboard-escape-quit) ;; Makes Escape quit prompts (Minibuffer Escape)
+             ;; You can use the bindings C-+ C-- for zooming in/out. 
+    				 ;; You can also use CTRL plus the mouse wheel for zooming in/out.
              ("C-+" . text-scale-increase)
              ("C--" . text-scale-decrease)
              ("<C-wheel-up>" . text-scale-increase)
@@ -457,18 +459,7 @@ With Emacs version 29, true transparency has been added.
     ;; are not right unless I also add this method of setting the default font.
 
     (add-to-list 'default-frame-alist '(font . "JetBrainsMono Nerd Font")) ;; Set your favorite font
-    (setq-default line-spacing 0.22)
-#+end_src
-
-*** Zooming In/Out
-You can use the bindings C-+ C-- for zooming in/out. You can also use CTRL plus the mouse wheel for zooming in/out.
-#+begin_src emacs-lisp
-    (use-package emacs
-      :bind
-      ("C-+" . text-scale-increase)
-      ("C--" . text-scale-decrease)
-      ("<C-wheel-up>" . text-scale-increase)
-      ("<C-wheel-down>" . text-scale-decrease))
+    (setq-default line-spacing nil)
 #+end_src
 
 ** Modeline
@@ -702,20 +693,20 @@ Once you've used it for a bit, you'll understand why people love it. Even readin
 For example, this document is effectively the source code and descriptions bound into the one document,
 much like the literate programming ideas that Donald Knuth made famous.
 #+begin_src emacs-lisp
-    (use-package org
-      :ensure nil
-      :custom
-      (org-edit-src-content-indentation 4) ;; Set src block automatic indent to 4 instead of 2.
+  (use-package org
+    :ensure nil
+    :custom
+    (org-edit-src-content-indentation 2) ;; Set src block automatic indent to 4 instead of 2.
 
-      :hook
-      (org-mode . org-indent-mode) ;; Indent text
-      ;; The following prevents <> from auto-pairing when electric-pair-mode is on.
-      ;; Otherwise, org-tempo is broken when you try to <s TAB...
-      ;;(org-mode . (lambda ()
-      ;;              (setq-local electric-pair-inhibit-predicate
-      ;;                          `(lambda (c)
-      ;;                             (if (char-equal c ?<) t (,electric-pair-inhibit-predicate c))))))
-      )
+    :hook
+    (org-mode . org-indent-mode) ;; Indent text
+    ;; The following prevents <> from auto-pairing when electric-pair-mode is on.
+    ;; Otherwise, org-tempo is broken when you try to <s TAB...
+    ;;(org-mode . (lambda ()
+    ;;              (setq-local electric-pair-inhibit-predicate
+    ;;                          `(lambda (c)
+    ;;                             (if (char-equal c ?<) t (,electric-pair-inhibit-predicate c))))))
+    )
 #+end_src
 
 *** Markdown mode
@@ -834,9 +825,6 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
       )
 #+end_src
 
-#+RESULTS:
-: aidermacs-transient-menu
-
 *** Minuet 
 #+begin_src emacs-lisp
     (use-package minuet
@@ -869,6 +857,22 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
       )
 
 #+end_src
+
+*** agent-shell
+
+#+begin_src emacs-lisp
+
+  (use-package shell-maker
+    :ensure t)
+
+  (use-package acp
+    :vc (:url "https://github.com/xenodium/acp.el"))
+
+  (use-package agent-shell
+    :vc (:url "https://github.com/xenodium/agent-shell"))
+#+end_src
+
+#+RESULTS:
 
 ** Terminal
 *** Eat

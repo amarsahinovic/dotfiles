@@ -74,6 +74,8 @@
   (load custom-file 'noerror 'nomessage)
   :bind (
          ([escape] . keyboard-escape-quit) ;; Makes Escape quit prompts (Minibuffer Escape)
+         ;; You can use the bindings C-+ C-- for zooming in/out. 
+				 ;; You can also use CTRL plus the mouse wheel for zooming in/out.
          ("C-+" . text-scale-increase)
          ("C--" . text-scale-decrease)
          ("<C-wheel-up>" . text-scale-increase)
@@ -218,14 +220,7 @@
 ;; are not right unless I also add this method of setting the default font.
 
 (add-to-list 'default-frame-alist '(font . "JetBrainsMono Nerd Font")) ;; Set your favorite font
-(setq-default line-spacing 0.22)
-
-(use-package emacs
-  :bind
-  ("C-+" . text-scale-increase)
-  ("C--" . text-scale-decrease)
-  ("<C-wheel-up>" . text-scale-increase)
-  ("<C-wheel-down>" . text-scale-decrease))
+(setq-default line-spacing nil)
 
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
@@ -375,7 +370,7 @@
 (use-package org
   :ensure nil
   :custom
-  (org-edit-src-content-indentation 4) ;; Set src block automatic indent to 4 instead of 2.
+  (org-edit-src-content-indentation 2) ;; Set src block automatic indent to 4 instead of 2.
 
   :hook
   (org-mode . org-indent-mode) ;; Indent text
@@ -497,6 +492,15 @@
   (minuet-set-optional-options minuet-codestral-options :stop ["\n\n"])
   (minuet-set-optional-options minuet-codestral-options :max_tokens 256)
   )
+
+(use-package shell-maker
+  :ensure t)
+
+(use-package acp
+  :vc (:url "https://github.com/xenodium/acp.el"))
+
+(use-package agent-shell
+  :vc (:url "https://github.com/xenodium/agent-shell"))
 
 (use-package eat
   :hook ('eshell-load-hook #'eat-eshell-mode))

@@ -1,0 +1,20 @@
+.aider*
+
+# Emacs cache and generated files
+emacs/.config/emacs/.cache/
+emacs/.config/emacs/auto-save-list/
+emacs/.config/emacs/eln-cache/
+emacs/.config/emacs/elpa/
+emacs/.config/emacs/history
+emacs/.config/emacs/package-quickstart.el
+emacs/.config/emacs/package-quickstart.elc
+emacs/.config/emacs/projectile-bookmarks.eld
+emacs/.config/emacs/projects
+emacs/.config/emacs/transient/
+emacs/.config/emacs/tree-sitter/
+
+# Fish shell variables
+fish/.config/fish/fish_variables
+
+# Ghostty config backups
+ghostty/.config/ghostty/*.bak
