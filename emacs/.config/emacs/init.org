@@ -870,9 +870,11 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
 
   (use-package agent-shell
     :vc (:url "https://github.com/xenodium/agent-shell"))
-#+end_src
 
-#+RESULTS:
+  (use-package agent-shell-sidebar
+    :after agent-shell
+    :vc (:url "https://github.com/cmacrae/agent-shell-sidebar"))
+#+end_src
 
 ** Terminal
 *** Eat

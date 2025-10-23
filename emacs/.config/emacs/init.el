@@ -502,6 +502,10 @@
 (use-package agent-shell
   :vc (:url "https://github.com/xenodium/agent-shell"))
 
+(use-package agent-shell-sidebar
+  :after agent-shell
+  :vc (:url "https://github.com/cmacrae/agent-shell-sidebar"))
+
 (use-package eat
   :hook ('eshell-load-hook #'eat-eshell-mode))
 
