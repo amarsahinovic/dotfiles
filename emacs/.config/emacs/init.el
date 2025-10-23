@@ -19,7 +19,7 @@
   (message "Emacs loaded in %s with %d garbage collections."
            (format "%.2f seconds"
                    (float-time
-					(time-subtract after-init-time before-init-time)))
+										(time-subtract after-init-time before-init-time)))
            gcs-done))
 
 (add-hook 'emacs-startup-hook #'start/display-startup-time)
@@ -456,7 +456,7 @@
   :config
   (setenv "MISTRAL_API_KEY" (start/api-mistral-get-bearer-token))
   :custom
-  ; See the Configuration section below
+																				; See the Configuration section below
   (aidermacs-default-chat-mode 'architect)
   (aidermacs-default-model "mistral/mistral-medium-latest")
 	(setq aidermacs-architect-model "mistral/devstral-medium-2507")
