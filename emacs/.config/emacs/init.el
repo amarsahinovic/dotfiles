@@ -287,6 +287,8 @@
 (use-package projectile
   :init
   (projectile-mode)
+	:config
+	(add-hook 'project-find-functions #'project-projectile)
   :custom
   (projectile-run-use-comint-mode t) ;; Interactive run dialog when running projects inside emacs (like giving input)
   (projectile-switch-project-action #'projectile-find-file) ;; Open dired when switching to a project
