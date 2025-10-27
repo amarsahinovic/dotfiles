@@ -155,6 +155,56 @@ This snippet adds a hook to org-mode buffers so that start/org-babel-tangle-conf
 This function checks to see if the file being saved is the Emacs.org file you’re looking at right now, and if so,
 automatically exports the configuration here to the associated output files.
 #+begin_src emacs-lisp
+  (defun start/format-org-elisp-blocks ()
+    "Format all emacs-lisp source blocks in the current org buffer."
+    (interactive)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "^#\\+begin_src emacs-lisp" nil t)
+        (let* ((element (org-element-at-point))
+               (begin (org-element-property :begin element))
+               (end (org-element-property :end element))
+               (value (org-element-property :value element)))
+          (when value
+            (save-restriction
+              (narrow-to-region begin end)
+              (org-edit-src-code)
+              (indent-region (point-min) (point-max))
+              (org-edit-src-exit)))))))
+
+  (defun start/remove-org-babel-results ()
+    "Remove all #+RESULTS blocks in the current org buffer."
+    (interactive)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "^#\\+RESULTS:.*\n" nil t)
+        (let ((results-begin (match-beginning 0)))
+          ;; Find the end of the results block
+          (forward-line 1)
+          (let ((results-end (point)))
+            ;; Check if there's a drawer or example block
+            (cond
+             ;; Handle #+begin_example ... #+end_example blocks
+             ((looking-at "^#\\+begin_example")
+              (when (re-search-forward "^#\\+end_example" nil t)
+                (forward-line 1)
+                (setq results-end (point))))
+             ;; Handle : prefixed results
+             ((looking-at "^:")
+              (while (and (not (eobp)) (looking-at "^:"))
+                (forward-line 1))
+              (setq results-end (point)))
+             ;; Handle single line results
+             ((not (looking-at "^$\\|^#\\|^\\*"))
+              (forward-line 1)
+              (setq results-end (point))))
+            ;; Also remove any trailing blank line after results
+            (when (looking-at "^$")
+              (forward-line 1)
+              (setq results-end (point)))
+            ;; Delete the results block
+            (delete-region results-begin results-end))))))
+
   (defun start/org-babel-tangle-config ()
     "Automatically tangle our init.org config file and refresh package-quickstart when we save it."
     (interactive)
@@ -163,11 +213,18 @@ automatically exports the configuration here to the associated output files.
                ;; Use equal instead of string-equal as file-truename returns list-like structure
                (equal (file-truename (file-name-directory (buffer-file-name)))
                       (file-truename (expand-file-name user-emacs-directory))))
-      (let ((org-confirm-babel-evaluate nil))
+      ;; Remove results blocks before formatting and tangling
+      (start/remove-org-babel-results)
+      ;; Format elisp blocks before tangling
+      (start/format-org-elisp-blocks)
+      (let ((org-confirm-babel-evaluate nil)
+            (warning-minimum-level :error)      ;; Suppress warnings, they are annoying
+            (byte-compile-warnings nil))        ;; Disable byte-compile warnings
         (org-babel-tangle)
         (package-quickstart-refresh))))
 
-  (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
+  (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config))
+  					)
 #+end_src
 
 ** Show startup time
