@@ -119,6 +119,7 @@
 
 	(use-short-answers t)  ;; Use short answers (y instead of yes)
 
+	(indent-tabs-mode nil)
   (tab-width 2)
 
   (make-backup-files nil) ;; Stop creating ~ backup files
@@ -237,27 +238,10 @@
     "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
   )
 
-;;(use-package gruvbox-theme
-;;  :config
-;;  (load-theme 'gruvbox-dark-medium t)) ;; We need to add t to trust this package
-(use-package doom-themes
+(use-package emacs
 	:ensure t
 	:config
-	;; Global settings (defaults)
-	(setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
-				doom-themes-enable-italic t) ; if nil, italics is universally disabled
-	(load-theme 'modus-vivendi-tinted t)
-
-  
-	;; Enable flashing mode-line on errors
-  (doom-themes-visual-bell-config)
-  ;; Enable custom neotree theme (all-the-icons must be installed!)
-  (doom-themes-neotree-config)
-  ;; or for treemacs users
-  (setq doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
-  (doom-themes-treemacs-config)
-  ;; Corrects (and improves) org-mode's native fontification.
-  (doom-themes-org-config))
+	(load-theme 'modus-vivendi t))
 
 (use-package ultra-scroll
 	:init
@@ -266,11 +250,11 @@
 	:config
 	(ultra-scroll-mode 1))
 
-(add-to-list 'default-frame-alist '(alpha-background . 90)) ;; For all new frames henceforth
+(add-to-list 'default-frame-alist '(alpha-background . 95)) ;; For all new frames henceforth
 
 (set-face-attribute 'default nil
                     :font "JetBrainsMono Nerd Font" ;; Set your favorite type of font or download JetBrains Mono
-                    :height 80
+                    :height 100
                     :weight 'medium)
 ;; This sets the default font on all graphical frames created after restarting Emacs.
 ;; Does the same thing as 'set-face-attribute default' above, but emacsclient fonts
@@ -305,7 +289,7 @@
   (projectile-mode)
   :custom
   (projectile-run-use-comint-mode t) ;; Interactive run dialog when running projects inside emacs (like giving input)
-  (projectile-switch-project-action #'projectile-dired) ;; Open dired when switching to a project
+  (projectile-switch-project-action #'projectile-find-file) ;; Open dired when switching to a project
   (projectile-project-search-path '(("~/dev" . 2)))) ;; . 1 means only search the first subdirectory level for projects
 ;; Use Bookmarks for smaller, not standard projects
 
@@ -565,12 +549,6 @@
 
 (use-package eat
   :hook ('eshell-load-hook #'eat-eshell-mode))
-
-;; (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
-
-;; (require 'start-multiFileExample)
-
-;; (start/hello)
 
 (use-package magit
   :commands magit-status)

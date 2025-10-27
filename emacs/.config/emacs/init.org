@@ -1,6 +1,3 @@
-#+Title: Emacs Kickstarter
-#+Author: MiniApollo
-#+Description: A starting point for Gnu Emacs with good defaults and packages that most people may want to use.
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
 #+Startup: showeverything
 #+Options: toc:2
@@ -39,10 +36,6 @@
   - [[#language-modes][Language modes]]
   - [[#ai][AI]]
   - [[#terminal][Terminal]]
-- [[#multi-file-example][Multi File Example]]
-  - [[#adding-the-lisp-directory-to-load-path][Adding the lisp directory to load-path]]
-  - [[#sourcing-the-files][Sourcing the files]]
-  - [[#using-the-file][Using the file]]
 - [[#version-control][Version control]]
   - [[#git][Git]]
 - [[#completion][Completion]]
@@ -321,6 +314,7 @@ line in the Auto-tangle hook.
 
   	(use-short-answers t)  ;; Use short answers (y instead of yes)
 
+  	(indent-tabs-mode nil)
     (tab-width 2)
 
     (make-backup-files nil) ;; Stop creating ~ backup files
@@ -462,30 +456,14 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
 
 
 * Appearance
+
 ** Set Theme
 Use consult-theme to easily try out themes (*Epilepsy* Warning).
 #+begin_src emacs-lisp
-  ;;(use-package gruvbox-theme
-  ;;  :config
-  ;;  (load-theme 'gruvbox-dark-medium t)) ;; We need to add t to trust this package
-  (use-package doom-themes
+  (use-package emacs
   	:ensure t
   	:config
-  	;; Global settings (defaults)
-  	(setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
-  				doom-themes-enable-italic t) ; if nil, italics is universally disabled
-  	(load-theme 'modus-vivendi-tinted t)
-
-    
-  	;; Enable flashing mode-line on errors
-    (doom-themes-visual-bell-config)
-    ;; Enable custom neotree theme (all-the-icons must be installed!)
-    (doom-themes-neotree-config)
-    ;; or for treemacs users
-    (setq doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
-    (doom-themes-treemacs-config)
-    ;; Corrects (and improves) org-mode's native fontification.
-    (doom-themes-org-config))
+  	(load-theme 'modus-vivendi t))
 #+end_src
 
 ** Ultra scroll
@@ -501,7 +479,7 @@ Use consult-theme to easily try out themes (*Epilepsy* Warning).
 ** Transparency
 With Emacs version 29, true transparency has been added.
 #+begin_src emacs-lisp
-  (add-to-list 'default-frame-alist '(alpha-background . 90)) ;; For all new frames henceforth
+  (add-to-list 'default-frame-alist '(alpha-background . 95)) ;; For all new frames henceforth
 #+end_src
 
 ** Fonts
@@ -509,7 +487,7 @@ With Emacs version 29, true transparency has been added.
 #+begin_src emacs-lisp
   (set-face-attribute 'default nil
                       :font "JetBrainsMono Nerd Font" ;; Set your favorite type of font or download JetBrains Mono
-                      :height 80
+                      :height 100
                       :weight 'medium)
   ;; This sets the default font on all graphical frames created after restarting Emacs.
   ;; Does the same thing as 'set-face-attribute default' above, but emacsclient fonts
@@ -551,6 +529,7 @@ While nerd-icons supports both GUI and TUI.
 #+end_src
 
 * Development
+
 ** Add binaries to path
 Add a path for custom binaries
 #+begin_src emacs-lisp
@@ -567,7 +546,7 @@ Project interaction library for Emacs.
     (projectile-mode)
     :custom
     (projectile-run-use-comint-mode t) ;; Interactive run dialog when running projects inside emacs (like giving input)
-    (projectile-switch-project-action #'projectile-dired) ;; Open dired when switching to a project
+    (projectile-switch-project-action #'projectile-find-file) ;; Open dired when switching to a project
     (projectile-project-search-path '(("~/dev" . 2)))) ;; . 1 means only search the first subdirectory level for projects
   ;; Use Bookmarks for smaller, not standard projects
 #+end_src
@@ -943,32 +922,7 @@ We setup eat with eshell, if you want to use bash, zsh etc., check out their git
     :hook ('eshell-load-hook #'eat-eshell-mode))
 #+end_src
 
-* Multi File Example
-** Adding the lisp directory to load-path
-Adds the lisp directory to emacs's load path to search for elisp files.
-This is necessary, because emacs does not search the entire user-emacs-directory.
-The directory name can be anything, just add it to the load-path.
-#+begin_src emacs-lisp
-  ;; (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
-#+end_src
-
-** Sourcing the files
-To use the elisp files we need to load it.
-Notes:
-- Don't forget the file and the provide name needs to be the same.
-- When naming elisp files, functions, it is recommended to use a group name (e.g init-, start- or any custom name), so it does not get mixed up with other names, functions.
-#+begin_src emacs-lisp
-  ;; (require 'start-multiFileExample)
-#+end_src
-
-** Using the file
-And now we can use everything from that file.
-#+begin_src emacs-lisp
-  ;; (start/hello)
-#+end_src
-
 * Version control
-All the package setups that don't need much tweaking.
 
 ** Git
 *** Magit
