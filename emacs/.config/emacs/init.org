@@ -17,6 +17,7 @@
 - [[#important-to-load-first][Important to load first]]
   - [[#evil-mode][Evil Mode]]
   - [[#general-keybindings][General Keybindings]]
+  - [[#traditional-emacs-style-keybindings][Traditional Emacs-style Keybindings]]
 - [[#appearance][Appearance]]
   - [[#set-theme][Set Theme]]
   - [[#ultra-scroll][Ultra scroll]]
@@ -381,12 +382,12 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
   (use-package general
     :config
     (general-evil-setup)  ;; evil
-    ;; Set up 'C-SPC' as the leader key
+    ;; Set up 'SPC' as the leader key (like Doom/Spacemacs/Neovim)
     (general-create-definer start/leader-keys
-      :states '(normal insert visual motion emacs) ;; evil
+      :states '(normal visual motion) ;; Only in normal, visual, and motion modes (not insert)
       :keymaps 'override
-      :prefix "C-SPC"
-      :global-prefix "C-SPC") ;; Set global leader key so we can access our keybindings from any state
+      :prefix "SPC"
+      :global-prefix "C-SPC") ;; C-SPC as backup in insert/emacs modes
 
     (start/leader-keys
       "a" '(:ignore t :wk "AI")
@@ -403,6 +404,12 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
       "c" '(eat :wk "Eat terminal")
       "p" '(projectile-command-map :wk "Projectile")
       "s p" '(projectile-discover-projects-in-search-path :wk "Search for projects"))
+
+    (start/leader-keys
+      "f" '(:ignore t :wk "Find")
+      "f f" '(consult-project-extra-find :wk "Find file in project")
+      "f d" '(consult-fd :wk "Find file with fd (respects gitignore)")
+      "f F" '(consult-find :wk "Find all files (includes hidden)"))
 
     (start/leader-keys
       "s" '(:ignore t :wk "Search")
@@ -454,6 +461,164 @@ To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC
     )
 #+end_src
 
+** Traditional Emacs-style Keybindings
+Emacs follows conventions for organizing keybindings under standard prefixes.
+This section provides traditional Emacs-style bindings alongside the SPC leader key bindings above.
+
+Standard Emacs prefixes:
+- C-x: File, buffer, window operations (built-in)
+- C-c: User and mode-specific commands (reserved for users)
+- C-h: Help system (built-in)
+- M-s: Search operations (built-in)
+- C-x p: Project commands (built-in, enhanced with consult-project-extra)
+
+Custom prefixes defined below:
+- C-c f: Find operations (files, projects, recent files)
+- C-c s: Search operations (grep, line search, symbols)
+- C-c b: Buffer operations (switch, kill, reload)
+- C-c g: Git/Version control (magit commands)
+- C-c e: Language/Eglot operations (LSP, diagnostics)
+- C-c t: Toggle operations (line numbers, themes, modes)
+- C-c p: Project operations (projectile-specific commands)
+
+#+begin_src emacs-lisp
+  (use-package general
+    :config
+    ;; C-c f prefix: Find operations (files, projects, etc.)
+    (general-create-definer start/find-keys
+      :prefix "C-c f")
+
+    (start/find-keys
+      "" '(:ignore t :wk "Find")
+      "f" '(consult-find :wk "Find file (all, includes hidden)")
+      "d" '(consult-fd :wk "Find file with fd (respects .gitignore)")
+      "p" '(consult-project-extra-find :wk "Find in project (buffers/files/projects)")
+      "r" '(consult-recent-file :wk "Recent files")
+      "l" '(consult-locate :wk "Locate file (system-wide)"))
+
+    ;; C-c s prefix: Search operations (grep, line search, etc.)
+    (general-create-definer start/search-keys
+      :prefix "C-c s")
+
+    (start/search-keys
+      "" '(:ignore t :wk "Search")
+      "s" '(consult-line :wk "Search line in buffer")
+      "g" '(consult-ripgrep :wk "Ripgrep in project")
+      "G" '(consult-git-grep :wk "Git grep in repository")
+      "r" '(consult-grep :wk "Grep in directory")
+      "i" '(consult-imenu :wk "Search symbols (Imenu)")
+      "I" '(consult-imenu-multi :wk "Search symbols across buffers")
+      "o" '(consult-outline :wk "Search outline headings")
+      "m" '(consult-mark :wk "Jump to mark")
+      "M" '(consult-global-mark :wk "Jump to global mark"))
+
+    ;; Extend M-s (built-in search prefix) with consult commands
+    ;; M-s is the traditional Emacs search prefix
+    (general-define-key
+     :keymaps 'search-map  ;; search-map is bound to M-s by default
+     "r" '(consult-ripgrep :wk "Ripgrep")
+     "l" '(consult-line :wk "Search line")
+     "i" '(consult-imenu :wk "Imenu")
+     "o" '(consult-outline :wk "Outline"))
+
+    ;; C-c b prefix: Buffer operations
+    (general-create-definer start/buffer-keys
+      :prefix "C-c b")
+
+    (start/buffer-keys
+      "" '(:ignore t :wk "Buffers")
+      "b" '(consult-buffer :wk "Switch buffer (all sources)")
+      "p" '(consult-project-buffer :wk "Switch project buffer")
+      "o" '(consult-buffer-other-window :wk "Switch buffer (other window)")
+      "k" '(kill-current-buffer :wk "Kill current buffer")
+      "K" '(kill-buffer :wk "Kill buffer (select)")
+      "r" '(revert-buffer :wk "Reload buffer")
+      "s" '(save-buffer :wk "Save buffer")
+      "S" '(save-some-buffers :wk "Save modified buffers"))
+
+    ;; C-c g prefix: Git/Version control operations
+    (general-create-definer start/git-keys
+      :prefix "C-c g")
+
+    (start/git-keys
+      "" '(:ignore t :wk "Git")
+      "s" '(magit-status :wk "Magit status")
+      "d" '(magit-diff :wk "Magit diff")
+      "l" '(magit-log :wk "Magit log")
+      "b" '(magit-blame :wk "Magit blame")
+      "c" '(magit-commit :wk "Magit commit"))
+
+    ;; C-c e prefix: Language/Eglot operations
+    (general-create-definer start/eglot-keys
+      :prefix "C-c e")
+
+    (start/eglot-keys
+      "" '(:ignore t :wk "Language/Eglot")
+      "e" '(eglot-reconnect :wk "Eglot reconnect")
+      "f" '(eglot-format :wk "Format buffer")
+      "r" '(eglot-rename :wk "Rename symbol")
+      "a" '(eglot-code-actions :wk "Code actions")
+      "d" '(eldoc-doc-buffer :wk "Show documentation")
+      "l" '(consult-flymake :wk "List diagnostics")
+      "n" '(flymake-goto-next-error :wk "Next diagnostic")
+      "p" '(flymake-goto-prev-error :wk "Previous diagnostic"))
+
+    ;; C-c t prefix: Toggle operations
+    (general-create-definer start/toggle-keys
+      :prefix "C-c t")
+
+    (start/toggle-keys
+      "" '(:ignore t :wk "Toggle")
+      "l" '(display-line-numbers-mode :wk "Line numbers")
+      "w" '(visual-line-mode :wk "Visual line mode (wrap)")
+      "t" '(consult-theme :wk "Switch theme")
+      "f" '(toggle-frame-fullscreen :wk "Fullscreen"))
+
+    ;; C-c p prefix: Project operations (complement to C-x p)
+    ;; Note: C-x p is the built-in project.el prefix with consult-project-extra enhancements
+    ;; This C-c p prefix is for projectile-specific commands
+    (general-create-definer start/project-keys
+      :prefix "C-c p")
+
+    (start/project-keys
+      "" '(:ignore t :wk "Project (Projectile)")
+      "p" '(projectile-switch-project :wk "Switch project")
+      "f" '(projectile-find-file :wk "Find file (projectile with cache)")
+      "d" '(projectile-find-dir :wk "Find directory")
+      "b" '(projectile-switch-to-buffer :wk "Switch to buffer")
+      "c" '(projectile-compile-project :wk "Compile")
+      "t" '(projectile-test-project :wk "Run tests")
+      "r" '(projectile-run-project :wk "Run project")
+      "k" '(projectile-kill-buffers :wk "Kill project buffers")
+      "i" '(projectile-invalidate-cache :wk "Invalidate cache")
+      "D" '(projectile-dired :wk "Dired at root"))
+
+    ;; Note: C-x p prefix is enhanced by consult-project-extra
+    ;; Available commands (built-in + consult enhancements):
+    ;; C-x p f - consult-project-extra-find (find file with preview)
+    ;; C-x p o - consult-project-extra-find-other-window
+    ;; C-x p p - project-switch-project
+    ;; C-x p b - project-switch-to-buffer
+    ;; C-x p d - project-find-dir
+    ;; C-x p g - project-find-regexp
+    ;; C-x p r - project-query-replace-regexp
+    ;; C-x p s - project-shell
+    ;; C-x p e - project-eshell
+    ;; C-x p c - project-compile
+    ;; C-x p k - project-kill-buffers
+
+    ;; Additional useful global bindings
+    (general-define-key
+     "C-x b" '(consult-buffer :wk "Switch buffer")  ;; Replace default switch-to-buffer
+     "C-x 4 b" '(consult-buffer-other-window :wk "Switch buffer other window")
+     "M-y" '(consult-yank-from-kill-ring :wk "Yank from kill ring")  ;; Better than yank-pop
+     "M-g i" '(consult-imenu :wk "Imenu")
+     "M-g o" '(consult-outline :wk "Outline")
+     "M-g m" '(consult-mark :wk "Jump to mark")
+     "M-g M" '(consult-global-mark :wk "Jump to global mark"))
+    )
+#+end_src
+
 
 * Appearance
 
@@ -463,7 +628,7 @@ Use consult-theme to easily try out themes (*Epilepsy* Warning).
   (use-package emacs
   	:ensure t
   	:config
-  	(load-theme 'modus-vivendi t))
+  	(load-theme 'modus-vivendi-tinted t))
 #+end_src
 
 ** Ultra scroll
@@ -1064,6 +1229,13 @@ One alternative is ivy and counsel, check out the [[https://github.com/MiniApoll
 Provides search and navigation commands based on the Emacs completion function.
 Check out their [[https://github.com/minad/consult][git repository]] for more awesome functions.
 #+begin_src emacs-lisp
+  (use-package consult-project-extra
+    :ensure t
+    :after (consult project)
+    :bind
+    (("C-x p f" . consult-project-extra-find)
+     ("C-x p o" . consult-project-extra-find-other-window)))
+
   (use-package consult
     ;; Enable automatic preview at point in the *Completions* buffer. This is
     ;; relevant when you use the default completion UI.
@@ -1082,6 +1254,10 @@ Check out their [[https://github.com/minad/consult][git repository]] for more aw
     ;; Use Consult to select xref locations with preview
     (setq xref-show-xrefs-function #'consult-xref
           xref-show-definitions-function #'consult-xref)
+
+    ;; Configure find and fd to search hidden files (dotfiles)
+    (setq consult-find-args "find . -not ( -path '*/.git/*' -prune )")  ;; Include hidden, exclude .git
+    (setq consult-fd-args "fd --hidden --exclude .git --full-path --color=never")  ;; Include hidden with fd
     :config
     ;; Optionally configure preview. The default value
     ;; is 'any, such that any key triggers the preview.
