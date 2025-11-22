@@ -468,7 +468,7 @@
 								 (w32-shell-dos-semantics))
 						'("expert_windows_amd64")
 					(eglot-alternatives
-					 '("expert_linux_amd64" "start_lexical.sh")))))
+					 '(("expert_linux_amd64" "--stdio") "start_lexical.sh")))))
 
 (use-package sideline-flymake
 	:hook (flymake-mode . sideline-mode)

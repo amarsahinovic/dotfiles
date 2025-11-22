@@ -767,7 +767,7 @@ Use visual block to uncomment easily in Org documents (C-v).
   								 (w32-shell-dos-semantics))
   						'("expert_windows_amd64")
   					(eglot-alternatives
-  					 '("expert_linux_amd64" "start_lexical.sh")))))
+  					 '(("expert_linux_amd64" "--stdio") "start_lexical.sh")))))
 #+end_src
 
 ** Sideline-flymake
