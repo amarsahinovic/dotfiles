@@ -306,6 +306,7 @@ line in the Auto-tangle hook.
 
     ;;(global-visual-line-mode t)           ;; Enable truncated lines
     (display-line-numbers-type 'relative)   ;; Relative line numbers
+    (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
     (global-display-line-numbers-mode t)    ;; Display line numbers
   	(column-number-mode t)                  ;; Display column in mode line
 
@@ -379,86 +380,86 @@ The Leader key is what you will press when you want to access your keybindings (
 To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC to replace n to skip).
 #+begin_src emacs-lisp
 
-  (use-package general
-    :config
-    (general-evil-setup)  ;; evil
-    ;; Set up 'SPC' as the leader key (like Doom/Spacemacs/Neovim)
-    (general-create-definer start/leader-keys
-      :states '(normal visual motion) ;; Only in normal, visual, and motion modes (not insert)
-      :keymaps 'override
-      :prefix "SPC"
-      :global-prefix "C-SPC") ;; C-SPC as backup in insert/emacs modes
+  ;; (use-package general
+  ;;   :config
+  ;;   (general-evil-setup)  ;; evil
+  ;;   ;; Set up 'SPC' as the leader key (like Doom/Spacemacs/Neovim)
+  ;;   (general-create-definer start/leader-keys
+  ;;     :states '(normal visual motion) ;; Only in normal, visual, and motion modes (not insert)
+  ;;     :keymaps 'override
+  ;;     :prefix "SPC"
+  ;;     :global-prefix "C-SPC") ;; C-SPC as backup in insert/emacs modes
 
-    (start/leader-keys
-      "a" '(:ignore t :wk "AI")
-      "a a" '(aidermacs-transient-menu :wk "Aider")
-      "a g" '(:ignore :wk "Gptel")
+  ;;   (start/leader-keys
+  ;;     "a" '(:ignore t :wk "AI")
+  ;;     "a a" '(aidermacs-transient-menu :wk "Aider")
+  ;;     "a g" '(:ignore :wk "Gptel")
 
-      "a g m" '(gptel-menu :wk "Menu")
-      "a g s" '(gptel-send :wk "Send"))
-  	
-    (start/leader-keys
-      "." '(find-file :wk "Find file")
-      "TAB" '(comment-line :wk "Comment lines")
-      "q" '(flymake-show-buffer-diagnostics :wk "Flymake buffer diagnostic")
-      "c" '(eat :wk "Eat terminal")
-      "p" '(projectile-command-map :wk "Projectile")
-      "s p" '(projectile-discover-projects-in-search-path :wk "Search for projects"))
+  ;;     "a g m" '(gptel-menu :wk "Menu")
+  ;;     "a g s" '(gptel-send :wk "Send"))
 
-    (start/leader-keys
-      "f" '(:ignore t :wk "Find")
-      "f f" '(consult-project-extra-find :wk "Find file in project")
-      "f d" '(consult-fd :wk "Find file with fd (respects gitignore)")
-      "f F" '(consult-find :wk "Find all files (includes hidden)"))
+  ;;   (start/leader-keys
+  ;;     "." '(find-file :wk "Find file")
+  ;;     "TAB" '(comment-line :wk "Comment lines")
+  ;;     "q" '(flymake-show-buffer-diagnostics :wk "Flymake buffer diagnostic")
+  ;;     "c" '(eat :wk "Eat terminal")
+  ;;     "p" '(projectile-command-map :wk "Projectile")
+  ;;     "s p" '(projectile-discover-projects-in-search-path :wk "Search for projects"))
 
-    (start/leader-keys
-      "s" '(:ignore t :wk "Search")
-      "s c" '((lambda () (interactive) (find-file "~/.config/emacs/init.org")) :wk "Find emacs Config")
-      "s r" '(consult-recent-file :wk "Search recent files")
-      "s f" '(consult-fd :wk "Search files with fd")
-      "s g" '(consult-ripgrep :wk "Search with ripgrep")
-      "s l" '(consult-line :wk "Search line")
-      "s i" '(consult-imenu :wk "Search Imenu buffer locations")) ;; This one is really cool
+  ;;   (start/leader-keys
+  ;;     "f" '(:ignore t :wk "Find")
+  ;;     "f f" '(consult-project-extra-find :wk "Find file in project")
+  ;;     "f d" '(consult-fd :wk "Find file with fd (respects gitignore)")
+  ;;     "f F" '(consult-find :wk "Find all files (includes hidden)"))
 
-    (start/leader-keys
-      "d" '(:ignore t :wk "Buffers & Dired")
-      "d s" '(consult-buffer :wk "Switch buffer")
-      "d k" '(kill-current-buffer :wk "Kill current buffer")
-      "d i" '(ibuffer :wk "Ibuffer")
-      "d n" '(next-buffer :wk "Next buffer")
-      "d p" '(previous-buffer :wk "Previous buffer")
-      "d r" '(revert-buffer :wk "Reload buffer")
-      "d v" '(dired :wk "Open dired")
-      "d j" '(dired-jump :wk "Dired jump to current"))
+  ;;   (start/leader-keys
+  ;;     "s" '(:ignore t :wk "Search")
+  ;;     "s c" '((lambda () (interactive) (find-file "~/.config/emacs/init.org")) :wk "Find emacs Config")
+  ;;     "s r" '(consult-recent-file :wk "Search recent files")
+  ;;     "s f" '(consult-fd :wk "Search files with fd")
+  ;;     "s g" '(consult-ripgrep :wk "Search with ripgrep")
+  ;;     "s l" '(consult-line :wk "Search line")
+  ;;     "s i" '(consult-imenu :wk "Search Imenu buffer locations")) ;; This one is really cool
 
-    (start/leader-keys
-      "e" '(:ignore t :wk "Languages")
-      "e e" '(eglot-reconnect :wk "Eglot Reconnect")
-      "e d" '(eldoc-doc-buffer :wk "Eldoc Buffer")
-      "e f" '(eglot-format :wk "Eglot Format")
-      "e l" '(consult-flymake :wk "Consult Flymake")
-      "e r" '(eglot-rename :wk "Eglot Rename")
-      "e i" '(xref-find-definitions :wk "Find definition")
-      "e v" '(:ignore t :wk "Elisp")
-      "e v b" '(eval-buffer :wk "Evaluate elisp in buffer")
-      "e v r" '(eval-region :wk "Evaluate elisp in region"))
+  ;;   (start/leader-keys
+  ;;     "d" '(:ignore t :wk "Buffers & Dired")
+  ;;     "d s" '(consult-buffer :wk "Switch buffer")
+  ;;     "d k" '(kill-current-buffer :wk "Kill current buffer")
+  ;;     "d i" '(ibuffer :wk "Ibuffer")
+  ;;     "d n" '(next-buffer :wk "Next buffer")
+  ;;     "d p" '(previous-buffer :wk "Previous buffer")
+  ;;     "d r" '(revert-buffer :wk "Reload buffer")
+  ;;     "d v" '(dired :wk "Open dired")
+  ;;     "d j" '(dired-jump :wk "Dired jump to current"))
 
-    (start/leader-keys
-      "g" '(:ignore t :wk "Git")
-      "g s" '(magit-status :wk "Magit status"))
+  ;;   (start/leader-keys
+  ;;     "e" '(:ignore t :wk "Languages")
+  ;;     "e e" '(eglot-reconnect :wk "Eglot Reconnect")
+  ;;     "e d" '(eldoc-doc-buffer :wk "Eldoc Buffer")
+  ;;     "e f" '(eglot-format :wk "Eglot Format")
+  ;;     "e l" '(consult-flymake :wk "Consult Flymake")
+  ;;     "e r" '(eglot-rename :wk "Eglot Rename")
+  ;;     "e i" '(xref-find-definitions :wk "Find definition")
+  ;;     "e v" '(:ignore t :wk "Elisp")
+  ;;     "e v b" '(eval-buffer :wk "Evaluate elisp in buffer")
+  ;;     "e v r" '(eval-region :wk "Evaluate elisp in region"))
 
-    (start/leader-keys
-      "h" '(:ignore t :wk "Help") ;; To get more help use C-h commands (describe variable, function, etc.)
-      "h q" '(save-buffers-kill-emacs :wk "Quit Emacs and Daemon")
-      "h r" '((lambda () (interactive)
-                (load-file "~/.config/emacs/init.el"))
-              :wk "Reload Emacs config"))
+  ;;   (start/leader-keys
+  ;;     "g" '(:ignore t :wk "Git")
+  ;;     "g s" '(magit-status :wk "Magit status"))
 
-    (start/leader-keys
-      "t" '(:ignore t :wk "Toggle")
-      "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
-      "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
-    )
+  ;;   (start/leader-keys
+  ;;     "h" '(:ignore t :wk "Help") ;; To get more help use C-h commands (describe variable, function, etc.)
+  ;;     "h q" '(save-buffers-kill-emacs :wk "Quit Emacs and Daemon")
+  ;;     "h r" '((lambda () (interactive)
+  ;;               (load-file "~/.config/emacs/init.el"))
+  ;;             :wk "Reload Emacs config"))
+
+  ;;   (start/leader-keys
+  ;;     "t" '(:ignore t :wk "Toggle")
+  ;;     "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
+  ;;     "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
+  ;;   )
 #+end_src
 
 ** Traditional Emacs-style Keybindings
@@ -493,6 +494,7 @@ Custom prefixes defined below:
       "f" '(consult-find :wk "Find file (all, includes hidden)")
       "d" '(consult-fd :wk "Find file with fd (respects .gitignore)")
       "p" '(consult-project-extra-find :wk "Find in project (buffers/files/projects)")
+      "o" '(consult-project-extra-find-other-window :wk "Find in project other window (buffers/files/projects)")
       "r" '(consult-recent-file :wk "Recent files")
       "l" '(consult-locate :wk "Locate file (system-wide)"))
 
@@ -736,21 +738,6 @@ Or add the lua-language-server executable to your path.
 If you can use a package manager just install the lsp server and add a hook.
 Use visual block to uncomment easily in Org documents (C-v).
 #+begin_src emacs-lisp
-  ;;(use-package eglot
-  ;;  :ensure nil ;; Don't install eglot because it's now built-in
-  ;;  :hook ((c-mode c++-mode ;; Autostart lsp servers for a given mode
-  ;;                 lua-mode) ;; Lua-mode needs to be installed
-  ;;         . eglot-ensure)
-  ;;  :custom
-  ;;  ;; Good default
-  ;;  (eglot-events-buffer-size 0) ;; No event buffers (Lsp server logs)
-  ;;  (eglot-autoshutdown t);; Shutdown unused servers.
-  ;;  (eglot-report-progress nil) ;; Disable lsp server logs (Don't show lsp messages at the bottom, java)
-  ;;  ;; Manual lsp servers
-  ;;  :config
-  ;;  (add-to-list 'eglot-server-programs
-  ;;               `(lua-mode . ("PATH_TO_THE_LSP_FOLDER/bin/lua-language-server" "-lsp"))) ;; Adds our lua lsp server to eglot's server list
-  ;;  )
   (use-package
   	eglot
   	:ensure nil
@@ -759,15 +746,14 @@ Use visual block to uncomment easily in Org documents (C-v).
   							 '(((python-ts-mode) . ("pyright-langserver"))))
   	)
 
-  (with-eval-after-load 'eglot
-  	(setf (alist-get '(elixir-mode elixir-ts-mode heex-ts-mode)
-  									 eglot-server-programs
-  									 nil nil #'equal)
-  				(if (and (fboundp 'w32-shell-dos-semantics)
-  								 (w32-shell-dos-semantics))
-  						'("expert_windows_amd64")
-  					(eglot-alternatives
-  					 '(("expert_linux_amd64" "--stdio") "start_lexical.sh")))))
+  ;; Configure Elixir LSP only on Linux
+  (when (eq system-type 'gnu/linux)
+    (with-eval-after-load 'eglot
+      (setf (alist-get '(elixir-mode elixir-ts-mode heex-ts-mode)
+                       eglot-server-programs
+                       nil nil #'equal)
+            (eglot-alternatives
+             '(("expert_linux_amd64" "--stdio") "start_lexical.sh")))))
 #+end_src
 
 ** Sideline-flymake

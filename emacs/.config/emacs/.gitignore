@@ -1,0 +1,21 @@
+# Auto-generated custom variables file
+custom-vars.el
+
+# Tangled output
+init.el
+
+# Package files
+elpa/
+eln-cache/
+auto-save-list/
+transient/
+recentf
+
+# Package quickstart cache
+package-quickstart.el
+
+# Other auto-generated files
+*.elc
+*~
+\#*\#
+.\#*
