@@ -2,7 +2,7 @@
 #+Startup: showeverything
 #+Options: toc:2
 
-* Table Of Contents :toc:
+* Table Of Contents                                                     :toc:
 - [[#introduction][Introduction]]
   - [[#where-to-start][Where to start?]]
   - [[#getting-help][Getting Help]]
@@ -15,8 +15,6 @@
   - [[#package-quickstart][Package quickstart]]
   - [[#good-defaults][Good Defaults]]
 - [[#important-to-load-first][Important to load first]]
-  - [[#evil-mode][Evil Mode]]
-  - [[#general-keybindings][General Keybindings]]
   - [[#traditional-emacs-style-keybindings][Traditional Emacs-style Keybindings]]
 - [[#appearance][Appearance]]
   - [[#set-theme][Set Theme]]
@@ -45,6 +43,8 @@
   - [[#orderless][Orderless]]
   - [[#vertico-and-marginalia][Vertico and Marginalia]]
   - [[#consult][Consult]]
+  - [[#embark][Embark]]
+  - [[#wgrep][Wgrep]]
   - [[#helpful][Helpful]]
   - [[#treemacs][Treemacs]]
   - [[#diminish][Diminish]]
@@ -117,14 +117,6 @@ When you are browsing through the Emacs manual you can easily search with:
 - m key: for menu items within the current Info buffer.
 - s key: for regular expression patterns (like words) within the current Info buffer.
 
-For evil users after setting up evil collection for info mode:
-- g-j: for next node in the current manual.
-- g-k: for previous node in the current manual.
-- g-G: for nodes (sections).
-- g-m: for menu items within the current Info buffer.
-- The other keybinds are the same
-To see all the evil [[https://github.com/emacs-evil/evil-collection/blob/master/modes/info/evil-collection-info.el][keybindings]] for info mode.
-
 Using goto-node:
 - Specify a Manual: If you want to search within a particular manual, place its name in parentheses like (emacs).
 - After that tell where you want to go in that manual. For example (emacs)Top, (emacs)specific section.
@@ -149,23 +141,6 @@ This snippet adds a hook to org-mode buffers so that start/org-babel-tangle-conf
 This function checks to see if the file being saved is the Emacs.org file you’re looking at right now, and if so,
 automatically exports the configuration here to the associated output files.
 #+begin_src emacs-lisp
-  (defun start/format-org-elisp-blocks ()
-    "Format all emacs-lisp source blocks in the current org buffer."
-    (interactive)
-    (save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward "^#\\+begin_src emacs-lisp" nil t)
-        (let* ((element (org-element-at-point))
-               (begin (org-element-property :begin element))
-               (end (org-element-property :end element))
-               (value (org-element-property :value element)))
-          (when value
-            (save-restriction
-              (narrow-to-region begin end)
-              (org-edit-src-code)
-              (indent-region (point-min) (point-max))
-              (org-edit-src-exit)))))))
-
   (defun start/remove-org-babel-results ()
     "Remove all #+RESULTS blocks in the current org buffer."
     (interactive)
@@ -207,18 +182,15 @@ automatically exports the configuration here to the associated output files.
                ;; Use equal instead of string-equal as file-truename returns list-like structure
                (equal (file-truename (file-name-directory (buffer-file-name)))
                       (file-truename (expand-file-name user-emacs-directory))))
-      ;; Remove results blocks before formatting and tangling
+      ;; Remove results blocks before tangling
       (start/remove-org-babel-results)
-      ;; Format elisp blocks before tangling
-      (start/format-org-elisp-blocks)
       (let ((org-confirm-babel-evaluate nil)
             (warning-minimum-level :error)      ;; Suppress warnings, they are annoying
             (byte-compile-warnings nil))        ;; Disable byte-compile warnings
         (org-babel-tangle)
         (package-quickstart-refresh))))
 
-  (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config))
-  					)
+  (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
 #+end_src
 
 ** Show startup time
@@ -305,7 +277,7 @@ line in the Auto-tangle hook.
     ;;(recentf-mode t) ;; Enable recent file mode
 
     ;;(global-visual-line-mode t)           ;; Enable truncated lines
-    (display-line-numbers-type 'relative)   ;; Relative line numbers
+    (display-line-numbers-type t)           ;; Line numbers
     (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
     (global-display-line-numbers-mode t)    ;; Display line numbers
   	(column-number-mode t)                  ;; Display column in mode line
@@ -341,130 +313,9 @@ line in the Auto-tangle hook.
 
 * Important to load first
 
-** Evil Mode
-An extensible vi/vim layer for Emacs. Because…let’s face it. The Vim keybindings are just plain better.
-Notes:
-- You can toggle evil mode with C-z.
-- To paste without copy (yank) select the text and use P (shift-p).
-
-If you don't want to use evil-mode don't forget to remove:
-- Messages buffer fix in Good default section (:ghook)
-- And also change general.el keybindings and setup (general-evil-setup, :states, etc.)
-#+begin_src emacs-lisp
-  (use-package evil
-    :init ;; Execute code Before a package is loaded
-    (evil-mode)
-    :config ;; Execute code After a package is loaded
-    (evil-set-initial-state 'eat-mode 'insert) ;; Set initial state in eat terminal to insert mode
-    :custom ;; Customization of package custom variables
-    (evil-want-keybinding nil)    ;; Disable evil bindings in other modes (It's not consistent and not good)
-    (evil-want-C-u-scroll t)      ;; Set C-u to scroll up
-    (evil-want-C-i-jump nil)      ;; Disables C-i jump
-    (evil-undo-system 'undo-redo) ;; C-r to redo
-    ;; Unmap keys in 'evil-maps. If not done, org-return-follows-link will not work
-    :bind (:map evil-motion-state-map
-                ("SPC" . nil)
-                ("RET" . nil)
-                ("TAB" . nil)))
-  (use-package evil-collection
-    :after evil
-    :config
-    ;; Setting where to use evil-collection
-    (setq evil-collection-mode-list '(dired ibuffer magit corfu vertico consult info))
-    (evil-collection-init))
-#+end_src
-
-** General Keybindings
-A keybinding framework to set keybindings easily.
-The Leader key is what you will press when you want to access your keybindings (SPC + . Find file).
-To search and replace, use query-replace-regexp to replace one by one C-M-% (SPC to replace n to skip).
-#+begin_src emacs-lisp
-
-  ;; (use-package general
-  ;;   :config
-  ;;   (general-evil-setup)  ;; evil
-  ;;   ;; Set up 'SPC' as the leader key (like Doom/Spacemacs/Neovim)
-  ;;   (general-create-definer start/leader-keys
-  ;;     :states '(normal visual motion) ;; Only in normal, visual, and motion modes (not insert)
-  ;;     :keymaps 'override
-  ;;     :prefix "SPC"
-  ;;     :global-prefix "C-SPC") ;; C-SPC as backup in insert/emacs modes
-
-  ;;   (start/leader-keys
-  ;;     "a" '(:ignore t :wk "AI")
-  ;;     "a a" '(aidermacs-transient-menu :wk "Aider")
-  ;;     "a g" '(:ignore :wk "Gptel")
-
-  ;;     "a g m" '(gptel-menu :wk "Menu")
-  ;;     "a g s" '(gptel-send :wk "Send"))
-
-  ;;   (start/leader-keys
-  ;;     "." '(find-file :wk "Find file")
-  ;;     "TAB" '(comment-line :wk "Comment lines")
-  ;;     "q" '(flymake-show-buffer-diagnostics :wk "Flymake buffer diagnostic")
-  ;;     "c" '(eat :wk "Eat terminal")
-  ;;     "p" '(projectile-command-map :wk "Projectile")
-  ;;     "s p" '(projectile-discover-projects-in-search-path :wk "Search for projects"))
-
-  ;;   (start/leader-keys
-  ;;     "f" '(:ignore t :wk "Find")
-  ;;     "f f" '(consult-project-extra-find :wk "Find file in project")
-  ;;     "f d" '(consult-fd :wk "Find file with fd (respects gitignore)")
-  ;;     "f F" '(consult-find :wk "Find all files (includes hidden)"))
-
-  ;;   (start/leader-keys
-  ;;     "s" '(:ignore t :wk "Search")
-  ;;     "s c" '((lambda () (interactive) (find-file "~/.config/emacs/init.org")) :wk "Find emacs Config")
-  ;;     "s r" '(consult-recent-file :wk "Search recent files")
-  ;;     "s f" '(consult-fd :wk "Search files with fd")
-  ;;     "s g" '(consult-ripgrep :wk "Search with ripgrep")
-  ;;     "s l" '(consult-line :wk "Search line")
-  ;;     "s i" '(consult-imenu :wk "Search Imenu buffer locations")) ;; This one is really cool
-
-  ;;   (start/leader-keys
-  ;;     "d" '(:ignore t :wk "Buffers & Dired")
-  ;;     "d s" '(consult-buffer :wk "Switch buffer")
-  ;;     "d k" '(kill-current-buffer :wk "Kill current buffer")
-  ;;     "d i" '(ibuffer :wk "Ibuffer")
-  ;;     "d n" '(next-buffer :wk "Next buffer")
-  ;;     "d p" '(previous-buffer :wk "Previous buffer")
-  ;;     "d r" '(revert-buffer :wk "Reload buffer")
-  ;;     "d v" '(dired :wk "Open dired")
-  ;;     "d j" '(dired-jump :wk "Dired jump to current"))
-
-  ;;   (start/leader-keys
-  ;;     "e" '(:ignore t :wk "Languages")
-  ;;     "e e" '(eglot-reconnect :wk "Eglot Reconnect")
-  ;;     "e d" '(eldoc-doc-buffer :wk "Eldoc Buffer")
-  ;;     "e f" '(eglot-format :wk "Eglot Format")
-  ;;     "e l" '(consult-flymake :wk "Consult Flymake")
-  ;;     "e r" '(eglot-rename :wk "Eglot Rename")
-  ;;     "e i" '(xref-find-definitions :wk "Find definition")
-  ;;     "e v" '(:ignore t :wk "Elisp")
-  ;;     "e v b" '(eval-buffer :wk "Evaluate elisp in buffer")
-  ;;     "e v r" '(eval-region :wk "Evaluate elisp in region"))
-
-  ;;   (start/leader-keys
-  ;;     "g" '(:ignore t :wk "Git")
-  ;;     "g s" '(magit-status :wk "Magit status"))
-
-  ;;   (start/leader-keys
-  ;;     "h" '(:ignore t :wk "Help") ;; To get more help use C-h commands (describe variable, function, etc.)
-  ;;     "h q" '(save-buffers-kill-emacs :wk "Quit Emacs and Daemon")
-  ;;     "h r" '((lambda () (interactive)
-  ;;               (load-file "~/.config/emacs/init.el"))
-  ;;             :wk "Reload Emacs config"))
-
-  ;;   (start/leader-keys
-  ;;     "t" '(:ignore t :wk "Toggle")
-  ;;     "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
-  ;;     "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
-  ;;   )
-#+end_src
 
 ** Traditional Emacs-style Keybindings
 Emacs follows conventions for organizing keybindings under standard prefixes.
-This section provides traditional Emacs-style bindings alongside the SPC leader key bindings above.
 
 Standard Emacs prefixes:
 - C-x: File, buffer, window operations (built-in)
@@ -481,6 +332,16 @@ Custom prefixes defined below:
 - C-c e: Language/Eglot operations (LSP, diagnostics)
 - C-c t: Toggle operations (line numbers, themes, modes)
 - C-c p: Project operations (projectile-specific commands)
+
+Other global bindings:
+- C-.: embark-act (contextual actions on candidate/target)
+- C-,: embark-dwim (act on thing at point)
+- C-;: avy-goto-char-timer (jump to visible text)
+
+#+begin_src emacs-lisp
+  (use-package avy
+    :bind ("C-;" . avy-goto-char-timer))
+#+end_src
 
 #+begin_src emacs-lisp
   (use-package general
@@ -700,7 +561,6 @@ While nerd-icons supports both GUI and TUI.
 ** Add binaries to path
 Add a path for custom binaries
 #+begin_src emacs-lisp
-  ;; (add-to-list 'exec-path "~/dev/bin/")
   (add-to-list 'exec-path "~/.local/bin/")
   (add-to-list 'exec-path "~/dev/bin/")
 #+end_src
@@ -736,7 +596,6 @@ Uncomment the following lines and change the path to the language server executa
 Or add the lua-language-server executable to your path.
 
 If you can use a package manager just install the lsp server and add a hook.
-Use visual block to uncomment easily in Org documents (C-v).
 #+begin_src emacs-lisp
   (use-package
   	eglot
@@ -781,6 +640,7 @@ Use visual block to uncomment easily in Org documents (C-v).
       :ensure t)
     :config
     (add-hook 'python-mode-hook 'auto-virtualenv-set-virtualenv)
+    (add-hook 'python-ts-mode-hook 'auto-virtualenv-set-virtualenv)
     (add-hook 'projectile-after-switch-project-hook 'auto-virtualenv-set-virtualenv)  ;; If using projectile
     )
 #+end_src
@@ -858,7 +718,6 @@ Setup Treesit-Auto to automatically install TS grammars and configure major mode
   (use-package go-mod-ts-mode :ensure nil :mode "\\.mod\\'")
   (use-package rust-ts-mode :ensure nil :mode "\\.rs\\'")
   (use-package tsx-ts-mode :ensure nil :mode "\\.tsx\\'")
-  (use-package elixir-ts-mode :ensure nil :mode ("\\.exs\\'" "\\.ex\\'"))
 #+end_src
 
 
@@ -870,7 +729,6 @@ Currently it's tedious to use Treesitter, because emacs has not yet fully migrat
 
 *** Lua mode
 Example, how to setup a language mode (if you don't want it, feel free to delete it).
-Use SPC-tab to uncomment the lines.
 #+begin_src emacs-lisp
   (use-package lua-mode
     :mode "\\.lua\\'") ;; Only start in a lua file
@@ -886,6 +744,7 @@ much like the literate programming ideas that Donald Knuth made famous.
     :ensure nil
     :custom
     (org-edit-src-content-indentation 2) ;; Set src block automatic indent to 4 instead of 2.
+    (org-return-follows-link t)          ;; RET follows links (TOC, URLs, etc.)
 
     :hook
     (org-mode . org-indent-mode) ;; Indent text
@@ -980,20 +839,18 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
 *** gptel
 #+begin_src emacs-lisp
   (use-package gptel
-  	:ensure t
-  	:config
-  	;;(setq gptel-model 'mistral-small) ;; Or a specific Mistral model like 'mistral-medium'
-  	;; (setq gptel-backend 'mistral)
-
-    (setq gptel-model   'mistral-small
-          gptel-backend
-          (gptel-make-openai "MistralLeChat"  ;Any name you want
-            :host "api.mistral.ai"
-            :endpoint "/v1/chat/completions"
-            :protocol "https"
-            :key (start/api-mistral-get-bearer-token)              ;can be a function that returns the key
-            :models '("mistral-small")))
-    )
+    :ensure t
+    :config
+    (let ((api-key (start/api-mistral-get-bearer-token)))
+      (when api-key
+        (setq gptel-model 'mistral-small
+              gptel-backend
+              (gptel-make-openai "MistralLeChat"
+                :host "api.mistral.ai"
+                :endpoint "/v1/chat/completions"
+                :protocol "https"
+                :key api-key
+                :models '("mistral-small"))))))
 
 #+end_src
 
@@ -1002,16 +859,17 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
   (use-package aidermacs
     :ensure t
     :bind (("C-c a" . aidermacs-transient-menu))
-    :config
-    (setenv "MISTRAL_API_KEY" (start/api-mistral-get-bearer-token))
     :custom
-  																				; See the Configuration section below
     (aidermacs-default-chat-mode 'architect)
     (aidermacs-default-model "mistral/mistral-medium-latest")
-  	(setq aidermacs-architect-model "mistral/devstral-medium-2507")
-  	(setq aidermacs-editor-model "mistral/devstral-medium-2507")
-  	(setq aidermacs-show-diff-after-change nil)
-    )
+    (aidermacs-architect-model "mistral/devstral-medium-2507")
+    (aidermacs-editor-model "mistral/devstral-medium-2507")
+    (aidermacs-show-diff-after-change nil)
+    :config
+    ;; Only set API key if available
+    (let ((api-key (start/api-mistral-get-bearer-token)))
+      (when api-key
+        (setenv "MISTRAL_API_KEY" api-key))))
 #+end_src
 
 *** Minuet 
@@ -1019,9 +877,9 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
   (use-package minuet
     :ensure t
     :bind
-    (("M-y" . #'minuet-complete-with-minibuffer) ;; use minibuffer for completion
-     ("M-i" . #'minuet-show-suggestion) ;; use overlay for completion
-     ("C-c m" . #'minuet-configure-provider)
+    (("M-i" . #'minuet-show-suggestion) ;; use overlay for completion
+     ("C-c m i" . #'minuet-complete-with-minibuffer) ;; use minibuffer for completion
+     ("C-c m c" . #'minuet-configure-provider)
      :map minuet-active-mode-map
      ;; These keymaps activate only when a minuet suggestion is displayed in the current buffer
      ("M-p" . #'minuet-previous-suggestion) ;; invoke completion or cycle to next completion
@@ -1038,11 +896,14 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
     (add-hook 'prog-mode-hook #'minuet-auto-suggestion-mode)
 
     :config
-    (setenv "CODESTRAL_API_KEY" (start/codestral-mistral-get-bearer-token))
-    ;; You can use M-x minuet-configure-provider to interactively configure provider and model
-    (setq minuet-provider 'codestral)
-    (minuet-set-optional-options minuet-codestral-options :stop ["\n\n"])
-    (minuet-set-optional-options minuet-codestral-options :max_tokens 256)
+    ;; Only configure if API key is available
+    (let ((api-key (start/codestral-mistral-get-bearer-token)))
+      (when api-key
+        (setenv "CODESTRAL_API_KEY" api-key)
+        ;; You can use M-x minuet-configure-provider to interactively configure provider and model
+        (setq minuet-provider 'codestral)
+        (minuet-set-optional-options minuet-codestral-options :stop ["\n\n"])
+        (minuet-set-optional-options minuet-codestral-options :max_tokens 256)))
     )
 
 #+end_src
@@ -1072,7 +933,7 @@ It's more portable and less overhead for users over like vterm or eshell.
 We setup eat with eshell, if you want to use bash, zsh etc., check out their git [[https://codeberg.org/akib/emacs-eat][repository]] how to do it.
 #+begin_src emacs-lisp
   (use-package eat
-    :hook ('eshell-load-hook #'eat-eshell-mode))
+    :hook (eshell-load-hook . eat-eshell-mode))
 #+end_src
 
 * Version control
@@ -1278,6 +1139,32 @@ Check out their [[https://github.com/minad/consult][git repository]] for more aw
     )
 #+end_src
 
+** Embark
+Contextual action menu for completion candidates and targets.
+- =C-.= to act on any candidate in vertico, corfu, dired, etc.
+- =C-,= as dwim (act on thing at point without prompt)
+- From a =consult-ripgrep= result: embark-export to wgrep for mass editing
+#+begin_src emacs-lisp
+  (use-package embark
+    :bind (("C-." . embark-act)
+           ("C-," . embark-dwim)
+           ("C-h B" . embark-bindings))
+    :init
+    (setq prefix-help-command #'embark-prefix-help-command))
+
+  (use-package embark-consult
+    :after (embark consult)
+    :hook (embark-collect-mode . consult-preview-at-point-mode))
+#+end_src
+
+** Wgrep
+Edit grep/ripgrep results as a regular buffer and save changes across files.
+Use =C-c C-p= to enter wgrep mode from a =consult-ripgrep= result, =C-c C-c= to apply.
+#+begin_src emacs-lisp
+  (use-package wgrep
+    :custom (wgrep-auto-save-buffer t))
+#+end_src
+
 ** Helpful
 
 #+begin_src emacs-lisp
@@ -1294,89 +1181,22 @@ Check out their [[https://github.com/minad/consult][git repository]] for more aw
 #+end_src
 
 ** Treemacs
-Treemacs integration alongside evil, projectile and dired
+Treemacs integration alongside projectile and dired
 #+begin_src emacs-lisp
   (use-package treemacs
     :ensure t
     :defer t
-    :init
-    (with-eval-after-load 'winum
-      (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
     :config
-    (progn
-      (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
-            treemacs-deferred-git-apply-delay        0.5
-            treemacs-directory-name-transformer      #'identity
-            treemacs-display-in-side-window          t
-            treemacs-eldoc-display                   'simple
-            treemacs-file-event-delay                2000
-            treemacs-file-extension-regex            treemacs-last-period-regex-value
-            treemacs-file-follow-delay               0.2
-            treemacs-file-name-transformer           #'identity
-            treemacs-follow-after-init               t
-            treemacs-expand-after-init               t
-            treemacs-find-workspace-method           'find-for-file-or-pick-first
-            treemacs-git-command-pipe                ""
-            treemacs-goto-tag-strategy               'refetch-index
-            treemacs-header-scroll-indicators        '(nil . "^^^^^^")
-            treemacs-hide-dot-git-directory          t
-            treemacs-indentation                     2
-            treemacs-indentation-string              " "
-            treemacs-is-never-other-window           nil
-            treemacs-max-git-entries                 5000
-            treemacs-missing-project-action          'ask
-            treemacs-move-files-by-mouse-dragging    t
-            treemacs-move-forward-on-expand          nil
-            treemacs-no-png-images                   nil
-            treemacs-no-delete-other-windows         t
-            treemacs-project-follow-cleanup          t
-            treemacs-persist-file                    (expand-file-name ".cache/treemacs-persist" user-emacs-directory)
-            treemacs-position                        'left
-            treemacs-read-string-input               'from-child-frame
-            treemacs-recenter-distance               0.1
-            treemacs-recenter-after-file-follow      nil
-            treemacs-recenter-after-tag-follow       nil
-            treemacs-recenter-after-project-jump     'always
-            treemacs-recenter-after-project-expand   'on-distance
-            treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
-            treemacs-project-follow-into-home        nil
-            treemacs-show-cursor                     nil
-            treemacs-show-hidden-files               t
-            treemacs-silent-filewatch                nil
-            treemacs-silent-refresh                  nil
-            treemacs-sorting                         'alphabetic-asc
-            treemacs-select-when-already-in-treemacs 'move-back
-            treemacs-space-between-root-nodes        t
-            treemacs-tag-follow-cleanup              t
-            treemacs-tag-follow-delay                1.5
-            treemacs-text-scale                      nil
-            treemacs-user-mode-line-format           nil
-            treemacs-user-header-line-format         nil
-            treemacs-wide-toggle-width               70
-            treemacs-width                           35
-            treemacs-width-increment                 1
-            treemacs-width-is-initially-locked       t
-            treemacs-workspace-switch-cleanup        nil)
-
-      ;; The default width and height of the icons is 22 pixels. If you are
-      ;; using a Hi-DPI display, uncomment this to double the icon size.
-      ;;(treemacs-resize-icons 44)
-
-      (treemacs-follow-mode t)
-      (treemacs-project-follow-mode t)
-      (treemacs-filewatch-mode t)
-      (treemacs-fringe-indicator-mode 'always)
-      (when treemacs-python-executable
-        (treemacs-git-commit-diff-mode t))
-
-      (pcase (cons (not (null (executable-find "git")))
-                   (not (null treemacs-python-executable)))
-        (`(t . t)
-         (treemacs-git-mode 'deferred))
-        (`(t . _)
-         (treemacs-git-mode 'simple)))
-
-      (treemacs-hide-gitignored-files-mode nil))
+    (treemacs-follow-mode t)
+    (treemacs-project-follow-mode t)
+    (treemacs-filewatch-mode t)
+    (treemacs-fringe-indicator-mode 'always)
+    (when treemacs-python-executable
+      (treemacs-git-commit-diff-mode t))
+    (pcase (cons (not (null (executable-find "git")))
+                 (not (null treemacs-python-executable)))
+      (`(t . t) (treemacs-git-mode 'deferred))
+      (`(t . _) (treemacs-git-mode 'simple)))
     :bind
     (:map global-map
           ("M-0"       . treemacs-select-window)
@@ -1391,10 +1211,6 @@ Treemacs integration alongside evil, projectile and dired
     :after (treemacs nerd-icons)
     :config
     (treemacs-load-theme "nerd-icons"))
-
-  (use-package treemacs-evil
-    :after (treemacs evil)
-    :ensure t)
 
   (use-package treemacs-projectile
     :after (treemacs projectile)

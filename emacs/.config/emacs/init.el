@@ -1,23 +1,6 @@
 ;; The default is 800 kilobytes. Measured in bytes.
 (setq gc-cons-threshold (* 50 1000 1000))
 
-(defun start/format-org-elisp-blocks ()
-  "Format all emacs-lisp source blocks in the current org buffer."
-  (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (while (re-search-forward "^#\\+begin_src emacs-lisp" nil t)
-      (let* ((element (org-element-at-point))
-             (begin (org-element-property :begin element))
-             (end (org-element-property :end element))
-             (value (org-element-property :value element)))
-        (when value
-          (save-restriction
-            (narrow-to-region begin end)
-            (org-edit-src-code)
-            (indent-region (point-min) (point-max))
-            (org-edit-src-exit)))))))
-
 (defun start/remove-org-babel-results ()
   "Remove all #+RESULTS blocks in the current org buffer."
   (interactive)
@@ -59,18 +42,15 @@
              ;; Use equal instead of string-equal as file-truename returns list-like structure
              (equal (file-truename (file-name-directory (buffer-file-name)))
                     (file-truename (expand-file-name user-emacs-directory))))
-    ;; Remove results blocks before formatting and tangling
+    ;; Remove results blocks before tangling
     (start/remove-org-babel-results)
-    ;; Format elisp blocks before tangling
-    (start/format-org-elisp-blocks)
     (let ((org-confirm-babel-evaluate nil)
           (warning-minimum-level :error)      ;; Suppress warnings, they are annoying
           (byte-compile-warnings nil))        ;; Disable byte-compile warnings
       (org-babel-tangle)
       (package-quickstart-refresh))))
 
-(add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config))
-					)
+(add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
 
 (defun start/display-startup-time ()
   (message "Emacs loaded in %s with %d garbage collections."
@@ -109,7 +89,7 @@
   ;;(recentf-mode t) ;; Enable recent file mode
 
   ;;(global-visual-line-mode t)           ;; Enable truncated lines
-  (display-line-numbers-type 'relative)   ;; Relative line numbers
+  (display-line-numbers-type t)           ;; Line numbers
   (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
   (global-display-line-numbers-mode t)    ;; Display line numbers
 	(column-number-mode t)                  ;; Display column in mode line
@@ -142,108 +122,8 @@
 
   )
 
-(use-package evil
-  :init ;; Execute code Before a package is loaded
-  (evil-mode)
-  :config ;; Execute code After a package is loaded
-  (evil-set-initial-state 'eat-mode 'insert) ;; Set initial state in eat terminal to insert mode
-  :custom ;; Customization of package custom variables
-  (evil-want-keybinding nil)    ;; Disable evil bindings in other modes (It's not consistent and not good)
-  (evil-want-C-u-scroll t)      ;; Set C-u to scroll up
-  (evil-want-C-i-jump nil)      ;; Disables C-i jump
-  (evil-undo-system 'undo-redo) ;; C-r to redo
-  ;; Unmap keys in 'evil-maps. If not done, org-return-follows-link will not work
-  :bind (:map evil-motion-state-map
-              ("SPC" . nil)
-              ("RET" . nil)
-              ("TAB" . nil)))
-(use-package evil-collection
-  :after evil
-  :config
-  ;; Setting where to use evil-collection
-  (setq evil-collection-mode-list '(dired ibuffer magit corfu vertico consult info))
-  (evil-collection-init))
-
-;; (use-package general
-;;   :config
-;;   (general-evil-setup)  ;; evil
-;;   ;; Set up 'SPC' as the leader key (like Doom/Spacemacs/Neovim)
-;;   (general-create-definer start/leader-keys
-;;     :states '(normal visual motion) ;; Only in normal, visual, and motion modes (not insert)
-;;     :keymaps 'override
-;;     :prefix "SPC"
-;;     :global-prefix "C-SPC") ;; C-SPC as backup in insert/emacs modes
-
-;;   (start/leader-keys
-;;     "a" '(:ignore t :wk "AI")
-;;     "a a" '(aidermacs-transient-menu :wk "Aider")
-;;     "a g" '(:ignore :wk "Gptel")
-
-;;     "a g m" '(gptel-menu :wk "Menu")
-;;     "a g s" '(gptel-send :wk "Send"))
-
-;;   (start/leader-keys
-;;     "." '(find-file :wk "Find file")
-;;     "TAB" '(comment-line :wk "Comment lines")
-;;     "q" '(flymake-show-buffer-diagnostics :wk "Flymake buffer diagnostic")
-;;     "c" '(eat :wk "Eat terminal")
-;;     "p" '(projectile-command-map :wk "Projectile")
-;;     "s p" '(projectile-discover-projects-in-search-path :wk "Search for projects"))
-
-;;   (start/leader-keys
-;;     "f" '(:ignore t :wk "Find")
-;;     "f f" '(consult-project-extra-find :wk "Find file in project")
-;;     "f d" '(consult-fd :wk "Find file with fd (respects gitignore)")
-;;     "f F" '(consult-find :wk "Find all files (includes hidden)"))
-
-;;   (start/leader-keys
-;;     "s" '(:ignore t :wk "Search")
-;;     "s c" '((lambda () (interactive) (find-file "~/.config/emacs/init.org")) :wk "Find emacs Config")
-;;     "s r" '(consult-recent-file :wk "Search recent files")
-;;     "s f" '(consult-fd :wk "Search files with fd")
-;;     "s g" '(consult-ripgrep :wk "Search with ripgrep")
-;;     "s l" '(consult-line :wk "Search line")
-;;     "s i" '(consult-imenu :wk "Search Imenu buffer locations")) ;; This one is really cool
-
-;;   (start/leader-keys
-;;     "d" '(:ignore t :wk "Buffers & Dired")
-;;     "d s" '(consult-buffer :wk "Switch buffer")
-;;     "d k" '(kill-current-buffer :wk "Kill current buffer")
-;;     "d i" '(ibuffer :wk "Ibuffer")
-;;     "d n" '(next-buffer :wk "Next buffer")
-;;     "d p" '(previous-buffer :wk "Previous buffer")
-;;     "d r" '(revert-buffer :wk "Reload buffer")
-;;     "d v" '(dired :wk "Open dired")
-;;     "d j" '(dired-jump :wk "Dired jump to current"))
-
-;;   (start/leader-keys
-;;     "e" '(:ignore t :wk "Languages")
-;;     "e e" '(eglot-reconnect :wk "Eglot Reconnect")
-;;     "e d" '(eldoc-doc-buffer :wk "Eldoc Buffer")
-;;     "e f" '(eglot-format :wk "Eglot Format")
-;;     "e l" '(consult-flymake :wk "Consult Flymake")
-;;     "e r" '(eglot-rename :wk "Eglot Rename")
-;;     "e i" '(xref-find-definitions :wk "Find definition")
-;;     "e v" '(:ignore t :wk "Elisp")
-;;     "e v b" '(eval-buffer :wk "Evaluate elisp in buffer")
-;;     "e v r" '(eval-region :wk "Evaluate elisp in region"))
-
-;;   (start/leader-keys
-;;     "g" '(:ignore t :wk "Git")
-;;     "g s" '(magit-status :wk "Magit status"))
-
-;;   (start/leader-keys
-;;     "h" '(:ignore t :wk "Help") ;; To get more help use C-h commands (describe variable, function, etc.)
-;;     "h q" '(save-buffers-kill-emacs :wk "Quit Emacs and Daemon")
-;;     "h r" '((lambda () (interactive)
-;;               (load-file "~/.config/emacs/init.el"))
-;;             :wk "Reload Emacs config"))
-
-;;   (start/leader-keys
-;;     "t" '(:ignore t :wk "Toggle")
-;;     "t t" '(visual-line-mode :wk "Toggle truncated lines (wrap)")
-;;     "t l" '(display-line-numbers-mode :wk "Toggle line numbers"))
-;;   )
+(use-package avy
+  :bind ("C-;" . avy-goto-char-timer))
 
 (use-package general
   :config
@@ -424,7 +304,6 @@
 (use-package nerd-icons-ibuffer
   :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
 
-;; (add-to-list 'exec-path "~/dev/bin/")
 (add-to-list 'exec-path "~/.local/bin/")
 (add-to-list 'exec-path "~/dev/bin/")
 
@@ -472,6 +351,7 @@
     :ensure t)
   :config
   (add-hook 'python-mode-hook 'auto-virtualenv-set-virtualenv)
+  (add-hook 'python-ts-mode-hook 'auto-virtualenv-set-virtualenv)
   (add-hook 'projectile-after-switch-project-hook 'auto-virtualenv-set-virtualenv)  ;; If using projectile
   )
 
@@ -533,7 +413,6 @@
 (use-package go-mod-ts-mode :ensure nil :mode "\\.mod\\'")
 (use-package rust-ts-mode :ensure nil :mode "\\.rs\\'")
 (use-package tsx-ts-mode :ensure nil :mode "\\.tsx\\'")
-(use-package elixir-ts-mode :ensure nil :mode ("\\.exs\\'" "\\.ex\\'"))
 
 (use-package lua-mode
   :mode "\\.lua\\'") ;; Only start in a lua file
@@ -542,6 +421,7 @@
   :ensure nil
   :custom
   (org-edit-src-content-indentation 2) ;; Set src block automatic indent to 4 instead of 2.
+  (org-return-follows-link t)          ;; RET follows links (TOC, URLs, etc.)
 
   :hook
   (org-mode . org-indent-mode) ;; Indent text
@@ -606,41 +486,40 @@
 	(start/get-authinfo-secret "codestral.mistral.ai" "bearer"))
 
 (use-package gptel
-	:ensure t
-	:config
-	;;(setq gptel-model 'mistral-small) ;; Or a specific Mistral model like 'mistral-medium'
-	;; (setq gptel-backend 'mistral)
-
-  (setq gptel-model   'mistral-small
-        gptel-backend
-        (gptel-make-openai "MistralLeChat"  ;Any name you want
-          :host "api.mistral.ai"
-          :endpoint "/v1/chat/completions"
-          :protocol "https"
-          :key (start/api-mistral-get-bearer-token)              ;can be a function that returns the key
-          :models '("mistral-small")))
-  )
+  :ensure t
+  :config
+  (let ((api-key (start/api-mistral-get-bearer-token)))
+    (when api-key
+      (setq gptel-model 'mistral-small
+            gptel-backend
+            (gptel-make-openai "MistralLeChat"
+              :host "api.mistral.ai"
+              :endpoint "/v1/chat/completions"
+              :protocol "https"
+              :key api-key
+              :models '("mistral-small"))))))
 
 (use-package aidermacs
   :ensure t
   :bind (("C-c a" . aidermacs-transient-menu))
-  :config
-  (setenv "MISTRAL_API_KEY" (start/api-mistral-get-bearer-token))
   :custom
-																				; See the Configuration section below
   (aidermacs-default-chat-mode 'architect)
   (aidermacs-default-model "mistral/mistral-medium-latest")
-	(setq aidermacs-architect-model "mistral/devstral-medium-2507")
-	(setq aidermacs-editor-model "mistral/devstral-medium-2507")
-	(setq aidermacs-show-diff-after-change nil)
-  )
+  (aidermacs-architect-model "mistral/devstral-medium-2507")
+  (aidermacs-editor-model "mistral/devstral-medium-2507")
+  (aidermacs-show-diff-after-change nil)
+  :config
+  ;; Only set API key if available
+  (let ((api-key (start/api-mistral-get-bearer-token)))
+    (when api-key
+      (setenv "MISTRAL_API_KEY" api-key))))
 
 (use-package minuet
   :ensure t
   :bind
-  (("M-y" . #'minuet-complete-with-minibuffer) ;; use minibuffer for completion
-   ("M-i" . #'minuet-show-suggestion) ;; use overlay for completion
-   ("C-c m" . #'minuet-configure-provider)
+  (("M-i" . #'minuet-show-suggestion) ;; use overlay for completion
+   ("C-c m i" . #'minuet-complete-with-minibuffer) ;; use minibuffer for completion
+   ("C-c m c" . #'minuet-configure-provider)
    :map minuet-active-mode-map
    ;; These keymaps activate only when a minuet suggestion is displayed in the current buffer
    ("M-p" . #'minuet-previous-suggestion) ;; invoke completion or cycle to next completion
@@ -657,11 +536,14 @@
   (add-hook 'prog-mode-hook #'minuet-auto-suggestion-mode)
 
   :config
-  (setenv "CODESTRAL_API_KEY" (start/codestral-mistral-get-bearer-token))
-  ;; You can use M-x minuet-configure-provider to interactively configure provider and model
-  (setq minuet-provider 'codestral)
-  (minuet-set-optional-options minuet-codestral-options :stop ["\n\n"])
-  (minuet-set-optional-options minuet-codestral-options :max_tokens 256)
+  ;; Only configure if API key is available
+  (let ((api-key (start/codestral-mistral-get-bearer-token)))
+    (when api-key
+      (setenv "CODESTRAL_API_KEY" api-key)
+      ;; You can use M-x minuet-configure-provider to interactively configure provider and model
+      (setq minuet-provider 'codestral)
+      (minuet-set-optional-options minuet-codestral-options :stop ["\n\n"])
+      (minuet-set-optional-options minuet-codestral-options :max_tokens 256)))
   )
 
 (use-package shell-maker
@@ -678,7 +560,7 @@
   :vc (:url "https://github.com/cmacrae/agent-shell-sidebar"))
 
 (use-package eat
-  :hook ('eshell-load-hook #'eat-eshell-mode))
+  :hook (eshell-load-hook . eat-eshell-mode))
 
 (use-package magit
   :commands magit-status)
@@ -834,6 +716,20 @@
   ;; (setq consult-project-function nil)
   )
 
+(use-package embark
+  :bind (("C-." . embark-act)
+         ("C-," . embark-dwim)
+         ("C-h B" . embark-bindings))
+  :init
+  (setq prefix-help-command #'embark-prefix-help-command))
+
+(use-package embark-consult
+  :after (embark consult)
+  :hook (embark-collect-mode . consult-preview-at-point-mode))
+
+(use-package wgrep
+  :custom (wgrep-auto-save-buffer t))
+
 (use-package helpful
   :bind
   ;; Note that the built-in `describe-function' includes both functions
@@ -848,84 +744,17 @@
 (use-package treemacs
   :ensure t
   :defer t
-  :init
-  (with-eval-after-load 'winum
-    (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
   :config
-  (progn
-    (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
-          treemacs-deferred-git-apply-delay        0.5
-          treemacs-directory-name-transformer      #'identity
-          treemacs-display-in-side-window          t
-          treemacs-eldoc-display                   'simple
-          treemacs-file-event-delay                2000
-          treemacs-file-extension-regex            treemacs-last-period-regex-value
-          treemacs-file-follow-delay               0.2
-          treemacs-file-name-transformer           #'identity
-          treemacs-follow-after-init               t
-          treemacs-expand-after-init               t
-          treemacs-find-workspace-method           'find-for-file-or-pick-first
-          treemacs-git-command-pipe                ""
-          treemacs-goto-tag-strategy               'refetch-index
-          treemacs-header-scroll-indicators        '(nil . "^^^^^^")
-          treemacs-hide-dot-git-directory          t
-          treemacs-indentation                     2
-          treemacs-indentation-string              " "
-          treemacs-is-never-other-window           nil
-          treemacs-max-git-entries                 5000
-          treemacs-missing-project-action          'ask
-          treemacs-move-files-by-mouse-dragging    t
-          treemacs-move-forward-on-expand          nil
-          treemacs-no-png-images                   nil
-          treemacs-no-delete-other-windows         t
-          treemacs-project-follow-cleanup          t
-          treemacs-persist-file                    (expand-file-name ".cache/treemacs-persist" user-emacs-directory)
-          treemacs-position                        'left
-          treemacs-read-string-input               'from-child-frame
-          treemacs-recenter-distance               0.1
-          treemacs-recenter-after-file-follow      nil
-          treemacs-recenter-after-tag-follow       nil
-          treemacs-recenter-after-project-jump     'always
-          treemacs-recenter-after-project-expand   'on-distance
-          treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
-          treemacs-project-follow-into-home        nil
-          treemacs-show-cursor                     nil
-          treemacs-show-hidden-files               t
-          treemacs-silent-filewatch                nil
-          treemacs-silent-refresh                  nil
-          treemacs-sorting                         'alphabetic-asc
-          treemacs-select-when-already-in-treemacs 'move-back
-          treemacs-space-between-root-nodes        t
-          treemacs-tag-follow-cleanup              t
-          treemacs-tag-follow-delay                1.5
-          treemacs-text-scale                      nil
-          treemacs-user-mode-line-format           nil
-          treemacs-user-header-line-format         nil
-          treemacs-wide-toggle-width               70
-          treemacs-width                           35
-          treemacs-width-increment                 1
-          treemacs-width-is-initially-locked       t
-          treemacs-workspace-switch-cleanup        nil)
-
-    ;; The default width and height of the icons is 22 pixels. If you are
-    ;; using a Hi-DPI display, uncomment this to double the icon size.
-    ;;(treemacs-resize-icons 44)
-
-    (treemacs-follow-mode t)
-    (treemacs-project-follow-mode t)
-    (treemacs-filewatch-mode t)
-    (treemacs-fringe-indicator-mode 'always)
-    (when treemacs-python-executable
-      (treemacs-git-commit-diff-mode t))
-
-    (pcase (cons (not (null (executable-find "git")))
-                 (not (null treemacs-python-executable)))
-      (`(t . t)
-       (treemacs-git-mode 'deferred))
-      (`(t . _)
-       (treemacs-git-mode 'simple)))
-
-    (treemacs-hide-gitignored-files-mode nil))
+  (treemacs-follow-mode t)
+  (treemacs-project-follow-mode t)
+  (treemacs-filewatch-mode t)
+  (treemacs-fringe-indicator-mode 'always)
+  (when treemacs-python-executable
+    (treemacs-git-commit-diff-mode t))
+  (pcase (cons (not (null (executable-find "git")))
+               (not (null treemacs-python-executable)))
+    (`(t . t) (treemacs-git-mode 'deferred))
+    (`(t . _) (treemacs-git-mode 'simple)))
   :bind
   (:map global-map
         ("M-0"       . treemacs-select-window)
@@ -940,10 +769,6 @@
   :after (treemacs nerd-icons)
   :config
   (treemacs-load-theme "nerd-icons"))
-
-(use-package treemacs-evil
-  :after (treemacs evil)
-  :ensure t)
 
 (use-package treemacs-projectile
   :after (treemacs projectile)
