@@ -89,7 +89,7 @@
   ;;(recentf-mode t) ;; Enable recent file mode
 
   ;;(global-visual-line-mode t)           ;; Enable truncated lines
-  (display-line-numbers-type t)           ;; Line numbers
+  (display-line-numbers-type 'relative)   ;; Relative line numbers (useful for evil jumps)
   (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
   (global-display-line-numbers-mode t)    ;; Display line numbers
 	(column-number-mode t)                  ;; Display column in mode line
@@ -121,6 +121,31 @@
          ("<C-wheel-down>" . text-scale-decrease))
 
   )
+
+(use-package evil
+  :init
+  ;; These must be set before evil loads
+  (setq evil-want-keybinding nil)    ;; Disable evil bindings in other modes
+  (setq evil-want-C-u-scroll t)      ;; C-u scrolls up
+  (setq evil-want-C-i-jump nil)      ;; Don't use C-i for jump
+  (evil-mode)
+  :config
+  (setq evil-undo-system 'undo-redo) ;; C-r to redo
+  (evil-set-initial-state 'eat-mode 'insert)   ;; Terminal starts in insert mode
+  ;; wgrep needs evil-normal-state after activation — evil-collection alone is not enough
+  ;; to make evil mode work in wgrep mode
+  (with-eval-after-load 'wgrep
+    (advice-add 'wgrep-change-to-wgrep-mode :after
+                (lambda (&rest _) (evil-normal-state))))
+  :bind (:map evil-motion-state-map
+              ("SPC" . nil)
+              ("RET" . nil)   ;; Let org-return-follows-link work
+              ("TAB" . nil)))
+
+(use-package evil-collection
+  :after evil
+  :config
+  (evil-collection-init))
 
 (use-package avy
   :bind ("C-;" . avy-goto-char-timer))
