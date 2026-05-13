@@ -273,18 +273,14 @@ line in the Auto-tangle hook.
     (blink-cursor-mode nil)     ;; Don't blink cursor
     (global-auto-revert-mode t) ;; Automatically reload file and show changes if the file has changed
 
-    ;;(dired-kill-when-opening-new-dired-buffer t) ;; Dired don't create new buffer
-    ;;(recentf-mode t) ;; Enable recent file mode
+    (recentf-mode t) ;; Enable recent file mode (needed by consult-recent-file)
 
-    ;;(global-visual-line-mode t)           ;; Enable truncated lines
     (display-line-numbers-type 'relative)   ;; Relative line numbers (useful for evil jumps)
     (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
     (global-display-line-numbers-mode t)    ;; Display line numbers
   	(column-number-mode t)                  ;; Display column in mode line
 
     (mouse-wheel-progressive-speed nil) ;; Disable progressive speed when scrolling
-    (scroll-conservatively 10) ;; Smooth scrolling
-    ;;(scroll-margin 8)
 
   	(use-short-answers t)  ;; Use short answers (y instead of yes)
 
@@ -562,9 +558,7 @@ Replace the default modeline with a prettier more useful.
     :init (doom-modeline-mode 1)
     :custom
     (doom-modeline-height 25)     ;; Sets modeline height
-    (doom-modeline-bar-width 5)   ;; Sets right bar width
-    (doom-modeline-persp-name t)  ;; Adds perspective name to modeline
-    (doom-modeline-persp-icon t)) ;; Adds folder icon next to persp name
+    (doom-modeline-bar-width 5))  ;; Sets right bar width
 #+end_src
 
 ** Nerd Icons
