@@ -30,8 +30,7 @@
   - [[#eglot][Eglot]]
   - [[#sideline-flymake][Sideline-flymake]]
   - [[#yasnippet][Yasnippet]]
-  - [[#auto-virtualenv][Auto-Virtualenv]]
-  - [[#treesit-auto][Treesit-Auto]]
+  - [[#envrc][Envrc]]
   - [[#treesitter][Treesitter]]
   - [[#language-modes][Language modes]]
   - [[#ai][AI]]
@@ -628,13 +627,16 @@ Or add the lua-language-server executable to your path.
 
 If you can use a package manager just install the lsp server and add a hook.
 #+begin_src emacs-lisp
-  (use-package
-  	eglot
-  	:ensure nil
-  	:config
-  	(add-to-list 'eglot-server-programs
-  							 '(((python-ts-mode) . ("pyright-langserver"))))
-  	)
+  (use-package eglot
+    :ensure nil
+    :hook
+    (python-ts-mode . eglot-ensure)
+    :config
+    (add-to-list 'eglot-server-programs
+                 '((python-ts-mode python-mode) . ("pyright-langserver"))))
+
+  (add-hook 'python-ts-mode-hook
+            (lambda () (add-hook 'before-save-hook #'eglot-format nil t)))
 
   ;; Configure Elixir LSP only on Linux
   (when (eq system-type 'gnu/linux)
@@ -662,32 +664,15 @@ If you can use a package manager just install the lsp server and add a hook.
     :hook (prog-mode . yas-minor-mode))
 #+end_src
 
-** Auto-Virtualenv
+** Envrc
+Integrates direnv into Emacs. Automatically activates the correct environment
+(venv, uv, Poetry, nix, etc.) when opening files in a project with a =.envrc= file.
+Eglot and other tools pick up the right Python/executables automatically.
 #+begin_src emacs-lisp
-  (use-package auto-virtualenv
-    :ensure t
-    :init
-    (use-package pyvenv
-      :ensure t)
-    :config
-    (add-hook 'python-mode-hook 'auto-virtualenv-set-virtualenv)
-    (add-hook 'python-ts-mode-hook 'auto-virtualenv-set-virtualenv)
-    (add-hook 'projectile-after-switch-project-hook 'auto-virtualenv-set-virtualenv)  ;; If using projectile
-    )
+  (use-package envrc
+    :hook (after-init . envrc-global-mode))
 #+end_src
 
-
-** Treesit-Auto
-Setup Treesit-Auto to automatically install TS grammars and configure major modes to use TS
-# +begin_src emacs-lisp
-#     (use-package treesit-auto
-#       :ensure t
-#       :custom
-#       (treesit-auto-install 'prompt)
-#       :config
-#       (treesit-auto-add-to-auto-mode-alist 'all)
-#       (global-treesit-auto-mode))
-# +end_src
 
 ** Treesitter
 #+begin_src emacs-lisp
@@ -801,20 +786,20 @@ much like the literate programming ideas that Donald Knuth made famous.
 *** Elixir mode
 Setup Elixir mode using elixir-ts-mode and treesiter grammar
 #+begin_src emacs-lisp
-  (use-package
-    elixir-ts-mode
-    :hook (elixir-ts-mode . eglot-ensure)
-    (elixir-ts-mode
-     .
-     (lambda ()
-       (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
-       (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
-       (push '("!=" . ?\u2260) prettify-symbols-alist)  ;; ≠
-       (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ≝
-       (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≈
-       (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
-       (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
-       (push '("|>" . ?\u25B7) prettify-symbols-alist))) ;; ▷
+  (use-package elixir-ts-mode
+    :hook
+    (elixir-ts-mode . eglot-ensure)
+    (heex-ts-mode   . eglot-ensure)
+    (elixir-ts-mode . (lambda ()
+                        (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
+                        (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
+                        (push '("!=" . ?\u2260) prettify-symbols-alist)  ;; ≠
+                        (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ≝
+                        (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≈
+                        (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
+                        (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
+                        (push '("|>" . ?\u25B7) prettify-symbols-alist)  ;; ▷
+                        (prettify-symbols-mode 1)))
     (before-save . eglot-format))
 
 #+end_src
@@ -840,7 +825,8 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
 #+begin_src emacs-lisp
   (use-package org-tempo
     :ensure nil
-    :after org)
+    :after org
+    :demand t)
 #+end_src
 
 ** AI
@@ -849,12 +835,13 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
 
 #+begin_src emacs-lisp
   (defun start/get-authinfo-secret (host user)
-    "Retrieves and returns the secret from .authinfo given a host and user parameters"
+    "Retrieves and returns the secret from .authinfo given a host and user parameters.
+  Returns nil if no matching entry is found."
     ;; THIS data should be store in ~/.authinfo in the following format:
   	;; machine api.mistral.ai login bearer password api-key-goes-here
     (let* ((auth-data (car (auth-source-search :max 1 :host host :user user)))
            (secret-function (plist-get auth-data :secret)))
-      (funcall secret-function)))
+      (and secret-function (funcall secret-function))))
 
   (defun start/api-mistral-get-bearer-token ()
     "Retrieves and returns the bearer token for Mistral API."
@@ -1100,7 +1087,7 @@ One alternative is ivy and counsel, check out the [[https://github.com/MiniApoll
     :config
     (nerd-icons-completion-mode)
     :hook
-    ('marginalia-mode-hook . 'nerd-icons-completion-marginalia-setup))
+    (marginalia-mode . nerd-icons-completion-marginalia-setup))
 #+end_src
 
 ** Consult

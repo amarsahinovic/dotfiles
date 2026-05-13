@@ -343,13 +343,16 @@
   (projectile-project-search-path '(("~/dev" . 2)))) ;; . 1 means only search the first subdirectory level for projects
 ;; Use Bookmarks for smaller, not standard projects
 
-(use-package
-	eglot
-	:ensure nil
-	:config
-	(add-to-list 'eglot-server-programs
-							 '(((python-ts-mode) . ("pyright-langserver"))))
-	)
+(use-package eglot
+  :ensure nil
+  :hook
+  (python-ts-mode . eglot-ensure)
+  :config
+  (add-to-list 'eglot-server-programs
+               '((python-ts-mode python-mode) . ("pyright-langserver"))))
+
+(add-hook 'python-ts-mode-hook
+          (lambda () (add-hook 'before-save-hook #'eglot-format nil t)))
 
 ;; Configure Elixir LSP only on Linux
 (when (eq system-type 'gnu/linux)
@@ -369,16 +372,8 @@
 (use-package yasnippet-snippets
   :hook (prog-mode . yas-minor-mode))
 
-(use-package auto-virtualenv
-  :ensure t
-  :init
-  (use-package pyvenv
-    :ensure t)
-  :config
-  (add-hook 'python-mode-hook 'auto-virtualenv-set-virtualenv)
-  (add-hook 'python-ts-mode-hook 'auto-virtualenv-set-virtualenv)
-  (add-hook 'projectile-after-switch-project-hook 'auto-virtualenv-set-virtualenv)  ;; If using projectile
-  )
+(use-package envrc
+  :hook (after-init . envrc-global-mode))
 
 (setq treesit-language-source-alist
       '((bash "https://github.com/tree-sitter/tree-sitter-bash")
@@ -464,20 +459,20 @@
   :init (setq markdown-command "multimarkdown")
   )
 
-(use-package
-  elixir-ts-mode
-  :hook (elixir-ts-mode . eglot-ensure)
-  (elixir-ts-mode
-   .
-   (lambda ()
-     (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
-     (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
-     (push '("!=" . ?\u2260) prettify-symbols-alist)  ;; ≠
-     (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ≝
-     (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≈
-     (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
-     (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
-     (push '("|>" . ?\u25B7) prettify-symbols-alist))) ;; ▷
+(use-package elixir-ts-mode
+  :hook
+  (elixir-ts-mode . eglot-ensure)
+  (heex-ts-mode   . eglot-ensure)
+  (elixir-ts-mode . (lambda ()
+                      (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
+                      (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
+                      (push '("!=" . ?\u2260) prettify-symbols-alist)  ;; ≠
+                      (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ≝
+                      (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≈
+                      (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
+                      (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
+                      (push '("|>" . ?\u25B7) prettify-symbols-alist)  ;; ▷
+                      (prettify-symbols-mode 1)))
   (before-save . eglot-format))
 
 (use-package toc-org
@@ -490,15 +485,17 @@
 
 (use-package org-tempo
   :ensure nil
-  :after org)
+  :after org
+  :demand t)
 
 (defun start/get-authinfo-secret (host user)
-  "Retrieves and returns the secret from .authinfo given a host and user parameters"
+  "Retrieves and returns the secret from .authinfo given a host and user parameters.
+Returns nil if no matching entry is found."
   ;; THIS data should be store in ~/.authinfo in the following format:
 	;; machine api.mistral.ai login bearer password api-key-goes-here
   (let* ((auth-data (car (auth-source-search :max 1 :host host :user user)))
          (secret-function (plist-get auth-data :secret)))
-    (funcall secret-function)))
+    (and secret-function (funcall secret-function))))
 
 (defun start/api-mistral-get-bearer-token ()
   "Retrieves and returns the bearer token for Mistral API."
@@ -677,7 +674,7 @@
   :config
   (nerd-icons-completion-mode)
   :hook
-  ('marginalia-mode-hook . 'nerd-icons-completion-marginalia-setup))
+  (marginalia-mode . nerd-icons-completion-marginalia-setup))
 
 (use-package consult-project-extra
   :ensure t
