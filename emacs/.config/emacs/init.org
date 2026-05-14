@@ -400,38 +400,25 @@ Other global bindings:
       "t" '(consult-theme :wk "Switch theme")
       "f" '(toggle-frame-fullscreen :wk "Fullscreen"))
 
-    ;; C-c p prefix: Project operations (complement to C-x p)
-    ;; Note: C-x p is the built-in project.el prefix with consult-project-extra enhancements
-    ;; This C-c p prefix is for projectile-specific commands
+    ;; C-c p prefix: Project operations
+    ;; Projectile handles project detection and switching; consult provides the
+    ;; preview-rich finders. They're bridged via `consult-project-function' =
+    ;; projectile-project-root, so consult commands honor projectile's projects.
     (general-create-definer start/project-keys
       :prefix "C-c p")
 
     (start/project-keys
-      "" '(:ignore t :wk "Project (Projectile)")
+      "" '(:ignore t :wk "Project")
       "p" '(projectile-switch-project :wk "Switch project")
-      "f" '(projectile-find-file :wk "Find file (projectile with cache)")
+      "f" '(consult-project-extra-find :wk "Find file (with preview)")
+      "b" '(consult-project-buffer :wk "Switch buffer (with preview)")
       "d" '(projectile-find-dir :wk "Find directory")
-      "b" '(projectile-switch-to-buffer :wk "Switch to buffer")
       "c" '(projectile-compile-project :wk "Compile")
       "t" '(projectile-test-project :wk "Run tests")
       "r" '(projectile-run-project :wk "Run project")
       "k" '(projectile-kill-buffers :wk "Kill project buffers")
       "i" '(projectile-invalidate-cache :wk "Invalidate cache")
       "D" '(projectile-dired :wk "Dired at root"))
-
-    ;; Note: C-x p prefix is enhanced by consult-project-extra
-    ;; Available commands (built-in + consult enhancements):
-    ;; C-x p f - consult-project-extra-find (find file with preview)
-    ;; C-x p o - consult-project-extra-find-other-window
-    ;; C-x p p - project-switch-project
-    ;; C-x p b - project-switch-to-buffer
-    ;; C-x p d - project-find-dir
-    ;; C-x p g - project-find-regexp
-    ;; C-x p r - project-query-replace-regexp
-    ;; C-x p s - project-shell
-    ;; C-x p e - project-eshell
-    ;; C-x p c - project-compile
-    ;; C-x p k - project-kill-buffers
 
     ;; Additional useful global bindings
     (general-define-key
@@ -1000,9 +987,7 @@ Check out their [[https://github.com/minad/consult][git repository]] for more aw
   (use-package consult-project-extra
     :ensure t
     :after (consult project)
-    :bind
-    (("C-x p f" . consult-project-extra-find)
-     ("C-x p o" . consult-project-extra-find-other-window)))
+    :commands (consult-project-extra-find consult-project-extra-find-other-window))
 
   (use-package consult
     :hook (completion-list-mode . consult-preview-at-point-mode)
@@ -1018,7 +1003,15 @@ Check out their [[https://github.com/minad/consult][git repository]] for more aw
     :config
     ;; Use projectile's project root instead of project.el's
     (autoload 'projectile-project-root "projectile")
-    (setq consult-project-function (lambda (_) (projectile-project-root))))
+    (setq consult-project-function (lambda (_) (projectile-project-root)))
+    ;; Enable live preview for the find commands (some default to manual M-.)
+    (with-eval-after-load 'consult-project-extra
+      (consult-customize
+       consult-project-extra-find
+       consult-project-extra-find-other-window
+       consult-find
+       consult-fd
+       :preview-key 'any)))
 #+end_src
 
 ** Embark
