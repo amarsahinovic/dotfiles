@@ -71,6 +71,15 @@
 
 (setq package-quickstart t) ;; For blazingly fast startup times, this line makes startup miles faster
 
+;; Refresh the quickstart file after any package install/delete/upgrade so its
+;; autoloads don't go stale when upgrading outside of saving init.org.
+(dolist (fn '(package-install
+              package-delete
+              package-upgrade
+              package-upgrade-all))
+  (when (fboundp fn)
+    (advice-add fn :after (lambda (&rest _) (package-quickstart-refresh)))))
+
 (use-package emacs
 	:custom
 	(menu-bar-mode nil)         ;; Disable the menu bar
