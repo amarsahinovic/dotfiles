@@ -85,18 +85,14 @@
   (blink-cursor-mode nil)     ;; Don't blink cursor
   (global-auto-revert-mode t) ;; Automatically reload file and show changes if the file has changed
 
-  ;;(dired-kill-when-opening-new-dired-buffer t) ;; Dired don't create new buffer
-  ;;(recentf-mode t) ;; Enable recent file mode
+  (recentf-mode t) ;; Enable recent file mode (needed by consult-recent-file)
 
-  ;;(global-visual-line-mode t)           ;; Enable truncated lines
   (display-line-numbers-type 'relative)   ;; Relative line numbers (useful for evil jumps)
   (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
   (global-display-line-numbers-mode t)    ;; Display line numbers
 	(column-number-mode t)                  ;; Display column in mode line
 
   (mouse-wheel-progressive-speed nil) ;; Disable progressive speed when scrolling
-  (scroll-conservatively 10) ;; Smooth scrolling
-  ;;(scroll-margin 8)
 
 	(use-short-answers t)  ;; Use short answers (y instead of yes)
 
@@ -287,10 +283,7 @@
    "M-g M" '(consult-global-mark :wk "Jump to global mark"))
   )
 
-(use-package emacs
-	:ensure t
-	:config
-	(load-theme 'modus-vivendi-tinted t))
+(load-theme 'modus-vivendi-tinted t)
 
 (use-package ultra-scroll
 	:init
@@ -316,9 +309,7 @@
   :init (doom-modeline-mode 1)
   :custom
   (doom-modeline-height 25)     ;; Sets modeline height
-  (doom-modeline-bar-width 5)   ;; Sets right bar width
-  (doom-modeline-persp-name t)  ;; Adds perspective name to modeline
-  (doom-modeline-persp-icon t)) ;; Adds folder icon next to persp name
+  (doom-modeline-bar-width 5))  ;; Sets right bar width
 
 (use-package nerd-icons
   :if (display-graphic-p))
@@ -340,7 +331,7 @@
   :custom
   (projectile-run-use-comint-mode t) ;; Interactive run dialog when running projects inside emacs (like giving input)
   (projectile-switch-project-action #'projectile-find-file) ;; Open dired when switching to a project
-  (projectile-project-search-path '(("~/dev" . 2)))) ;; . 1 means only search the first subdirectory level for projects
+  (projectile-project-search-path '(("~/dev" . 2)))) ;; Search up to 2 subdirectory levels deep for projects
 ;; Use Bookmarks for smaller, not standard projects
 
 (use-package eglot
@@ -369,8 +360,11 @@
 	(sideline-flymake-display-mode 'line) ;; Show errors on the current line
 	(sideline-backends-right '(sideline-flymake)))
 
-(use-package yasnippet-snippets
+(use-package yasnippet
   :hook (prog-mode . yas-minor-mode))
+
+(use-package yasnippet-snippets
+  :after yasnippet)
 
 (use-package envrc
   :hook (after-init . envrc-global-mode))
@@ -440,7 +434,7 @@
 (use-package org
   :ensure nil
   :custom
-  (org-edit-src-content-indentation 2) ;; Set src block automatic indent to 4 instead of 2.
+  (org-edit-src-content-indentation 2) ;; Indent src block contents by 2 spaces.
   (org-return-follows-link t)          ;; RET follows links (TOC, URLs, etc.)
 
   :hook
@@ -569,13 +563,16 @@ Returns nil if no matching entry is found."
   )
 
 (use-package shell-maker
-  :ensure t)
+  :ensure t
+  :defer t)
 
 (use-package acp
-  :vc (:url "https://github.com/xenodium/acp.el"))
+  :vc (:url "https://github.com/xenodium/acp.el")
+  :defer t)
 
 (use-package agent-shell
-  :vc (:url "https://github.com/xenodium/agent-shell"))
+  :vc (:url "https://github.com/xenodium/agent-shell")
+  :defer t)
 
 (use-package agent-shell-sidebar
   :after agent-shell
@@ -594,34 +591,17 @@ Returns nil if no matching entry is found."
   :init (global-diff-hl-mode))
 
 (use-package corfu
-  ;; Optional customizations
   :custom
-  (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
-  (corfu-auto t)                 ;; Enable auto completion
-  (corfu-auto-prefix 2)          ;; Minimum length of prefix for auto completion.
-  (corfu-popupinfo-mode t)       ;; Enable popup information
-  (corfu-popupinfo-delay 0.5)    ;; Lower popupinfo delay to 0.5 seconds from 2 seconds
-  (corfu-separator ?\s)          ;; Orderless field separator, Use M-SPC to enter separator
-  ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
-  ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
-  ;; (corfu-preview-current nil)    ;; Disable current candidate preview
-  ;; (corfu-preselect 'prompt)      ;; Preselect the prompt
-  ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
-  ;; (corfu-scroll-margin 5)        ;; Use scroll margin
+  (corfu-cycle t)
+  (corfu-auto t)
+  (corfu-auto-prefix 2)
+  (corfu-popupinfo-mode t)
+  (corfu-popupinfo-delay 0.5)
+  (corfu-separator ?\s)             ;; Orderless field separator, use M-SPC
+  (corfu-preview-current nil)       ;; Don't insert completion without confirmation
   (completion-ignore-case t)
-
-  ;; Emacs 30 and newer: Disable Ispell completion function.
-  ;; Try `cape-dict' as an alternative.
-  (text-mode-ispell-word-completion nil)
-
-  ;; Enable indentation+completion using the TAB key.
-  ;; `completion-at-point' is often bound to M-TAB.
+  (text-mode-ispell-word-completion nil)  ;; Use cape-dict instead (Emacs 30+)
   (tab-always-indent 'complete)
-
-  (corfu-preview-current nil) ;; Don't insert completion without confirmation
-  ;; Recommended: Enable Corfu globally.  This is recommended since Dabbrev can
-  ;; be used globally (M-/).  See also the customization variable
-  ;; `global-corfu-modes' to exclude certain modes.
   :init
   (global-corfu-mode))
 
@@ -632,26 +612,12 @@ Returns nil if no matching entry is found."
 (use-package cape
   :after corfu
   :init
-  ;; Add to the global default value of `completion-at-point-functions' which is
-  ;; used by `completion-at-point'.  The order of the functions matters, the
-  ;; first function returning a result wins.  Note that the list of buffer-local
-  ;; completion functions takes precedence over the global list.
-  ;; The functions that are added later will be the first in the list
-
-  (add-to-list 'completion-at-point-functions #'cape-dabbrev) ;; Complete word from current buffers
-  (add-to-list 'completion-at-point-functions #'cape-dict) ;; Dictionary completion
-  (add-to-list 'completion-at-point-functions #'cape-file) ;; Path completion
-  (add-to-list 'completion-at-point-functions #'cape-elisp-block) ;; Complete elisp in Org or Markdown mode
-  (add-to-list 'completion-at-point-functions #'cape-keyword) ;; Keyword/Snipet completion
-
-  ;;(add-to-list 'completion-at-point-functions #'cape-abbrev) ;; Complete abbreviation
-  ;;(add-to-list 'completion-at-point-functions #'cape-history) ;; Complete from Eshell, Comint or minibuffer history
-  ;;(add-to-list 'completion-at-point-functions #'cape-line) ;; Complete entire line from current buffer
-  ;;(add-to-list 'completion-at-point-functions #'cape-elisp-symbol) ;; Complete Elisp symbol
-  ;;(add-to-list 'completion-at-point-functions #'cape-tex) ;; Complete Unicode char from TeX command, e.g. \hbar
-  ;;(add-to-list 'completion-at-point-functions #'cape-sgml) ;; Complete Unicode char from SGML entity, e.g., &alpha
-  ;;(add-to-list 'completion-at-point-functions #'cape-rfc1345) ;; Complete Unicode char using RFC 1345 mnemonics
-  )
+  ;; Functions added later appear earlier in the completion list.
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  (add-to-list 'completion-at-point-functions #'cape-dict)
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-elisp-block)
+  (add-to-list 'completion-at-point-functions #'cape-keyword))
 
 (use-package orderless
   :custom
@@ -684,59 +650,20 @@ Returns nil if no matching entry is found."
    ("C-x p o" . consult-project-extra-find-other-window)))
 
 (use-package consult
-  ;; Enable automatic preview at point in the *Completions* buffer. This is
-  ;; relevant when you use the default completion UI.
   :hook (completion-list-mode . consult-preview-at-point-mode)
   :init
-  ;; Optionally configure the register formatting. This improves the register
-  ;; preview for `consult-register', `consult-register-load',
-  ;; `consult-register-store' and the Emacs built-ins.
   (setq register-preview-delay 0.5
         register-preview-function #'consult-register-format)
-
-  ;; Optionally tweak the register preview window.
-  ;; This adds thin lines, sorting and hides the mode line of the window.
   (advice-add #'register-preview :override #'consult-register-window)
-
-  ;; Use Consult to select xref locations with preview
   (setq xref-show-xrefs-function #'consult-xref
         xref-show-definitions-function #'consult-xref)
-
-  ;; Configure find and fd to search hidden files (dotfiles)
-  (setq consult-find-args "find . -not ( -path '*/.git/*' -prune )")  ;; Include hidden, exclude .git
-  (setq consult-fd-args "fd --hidden --exclude .git --full-path --color=never")  ;; Include hidden with fd
+  ;; Include hidden files, exclude .git
+  (setq consult-find-args "find . -not ( -path '*/.git/*' -prune )")
+  (setq consult-fd-args "fd --hidden --exclude .git --full-path --color=never")
   :config
-  ;; Optionally configure preview. The default value
-  ;; is 'any, such that any key triggers the preview.
-  ;; (setq consult-preview-key 'any)
-  ;; (setq consult-preview-key "M-.")
-  ;; (setq consult-preview-key '("S-<down>" "S-<up>"))
-
-  ;; For some commands and buffer sources it is useful to configure the
-  ;; :preview-key on a per-command basis using the `consult-customize' macro.
-  ;; (consult-customize
-  ;; consult-theme :preview-key '(:debounce 0.2 any)
-  ;; consult-ripgrep consult-git-grep consult-grep
-  ;; consult-bookmark consult-recent-file consult-xref
-  ;; consult--source-bookmark consult--source-file-register
-  ;; consult--source-recent-file consult--source-project-recent-file
-  ;; :preview-key "M-."
-  ;; :preview-key '(:debounce 0.4 any))
-
-  ;; By default `consult-project-function' uses `project-root' from project.el.
-  ;; Optionally configure a different project root function.
-   ;;;; 1. project.el (the default)
-  ;; (setq consult-project-function #'consult--default-project--function)
-   ;;;; 2. vc.el (vc-root-dir)
-  ;; (setq consult-project-function (lambda (_) (vc-root-dir)))
-   ;;;; 3. locate-dominating-file
-  ;; (setq consult-project-function (lambda (_) (locate-dominating-file "." ".git")))
-   ;;;; 4. projectile.el (projectile-project-root)
+  ;; Use projectile's project root instead of project.el's
   (autoload 'projectile-project-root "projectile")
-  (setq consult-project-function (lambda (_) (projectile-project-root)))
-   ;;;; 5. No project support
-  ;; (setq consult-project-function nil)
-  )
+  (setq consult-project-function (lambda (_) (projectile-project-root))))
 
 (use-package embark
   :bind (("C-." . embark-act)
