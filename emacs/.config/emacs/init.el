@@ -96,9 +96,8 @@
 
   (recentf-mode t) ;; Enable recent file mode (needed by consult-recent-file)
 
-  (display-line-numbers-type 'relative)   ;; Relative line numbers (useful for evil jumps)
   (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
-  (global-display-line-numbers-mode t)    ;; Display line numbers
+  (global-display-line-numbers-mode t)    ;; Display line numbers (absolute by default)
 	(column-number-mode t)                  ;; Display column in mode line
 
   (mouse-wheel-progressive-speed nil) ;; Disable progressive speed when scrolling
@@ -126,31 +125,6 @@
          ("<C-wheel-down>" . text-scale-decrease))
 
   )
-
-(use-package evil
-  :init
-  ;; These must be set before evil loads
-  (setq evil-want-keybinding nil)    ;; Disable evil bindings in other modes
-  (setq evil-want-C-u-scroll t)      ;; C-u scrolls up
-  (setq evil-want-C-i-jump nil)      ;; Don't use C-i for jump
-  (evil-mode)
-  :config
-  (setq evil-undo-system 'undo-redo) ;; C-r to redo
-  (evil-set-initial-state 'eat-mode 'insert)   ;; Terminal starts in insert mode
-  ;; wgrep needs evil-normal-state after activation — evil-collection alone is not enough
-  ;; to make evil mode work in wgrep mode
-  (with-eval-after-load 'wgrep
-    (advice-add 'wgrep-change-to-wgrep-mode :after
-                (lambda (&rest _) (evil-normal-state))))
-  :bind (:map evil-motion-state-map
-              ("SPC" . nil)
-              ("RET" . nil)   ;; Let org-return-follows-link work
-              ("TAB" . nil)))
-
-(use-package evil-collection
-  :after evil
-  :config
-  (evil-collection-init))
 
 (use-package avy
   :bind ("C-;" . avy-goto-char-timer))
@@ -511,21 +485,6 @@ Returns nil if no matching entry is found."
               :key api-key
               :models '("mistral-small"))))))
 
-(use-package aidermacs
-  :ensure t
-  :bind (("C-c a" . aidermacs-transient-menu))
-  :custom
-  (aidermacs-default-chat-mode 'architect)
-  (aidermacs-default-model "mistral/mistral-medium-latest")
-  (aidermacs-architect-model "mistral/devstral-medium-2507")
-  (aidermacs-editor-model "mistral/devstral-medium-2507")
-  (aidermacs-show-diff-after-change nil)
-  :config
-  ;; Only set API key if available
-  (let ((api-key (start/api-mistral-get-bearer-token)))
-    (when api-key
-      (setenv "MISTRAL_API_KEY" api-key))))
-
 (use-package minuet
   :ensure t
   :bind
@@ -569,10 +528,6 @@ Returns nil if no matching entry is found."
 (use-package agent-shell
   :vc (:url "https://github.com/xenodium/agent-shell")
   :defer t)
-
-(use-package agent-shell-sidebar
-  :after agent-shell
-  :vc (:url "https://github.com/cmacrae/agent-shell-sidebar"))
 
 (use-package eat
   :hook (eshell-load-hook . eat-eshell-mode))
