@@ -67,7 +67,7 @@
 (setq package-archives '(("melpa" . "https://melpa.org/packages/") ;; Sets default package repositories
                          ("org" . "https://orgmode.org/elpa/")
                          ("elpa" . "https://elpa.gnu.org/packages/")
-                         ("nongnu" . "https://elpa.nongnu.org/nongnu/"))) ;; For Eat Terminal
+                         ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
 
 (setq package-quickstart t) ;; For blazingly fast startup times, this line makes startup miles faster
 
@@ -281,8 +281,7 @@
   (doom-modeline-height 25)     ;; Sets modeline height
   (doom-modeline-bar-width 5))  ;; Sets right bar width
 
-(use-package nerd-icons
-  :if (display-graphic-p))
+(use-package nerd-icons)
 
 (use-package nerd-icons-dired
   :hook (dired-mode . (lambda () (nerd-icons-dired-mode t))))
@@ -300,9 +299,8 @@
 	(add-hook 'project-find-functions #'project-projectile)
   :custom
   (projectile-run-use-comint-mode t) ;; Interactive run dialog when running projects inside emacs (like giving input)
-  (projectile-switch-project-action #'projectile-find-file) ;; Open dired when switching to a project
+  (projectile-switch-project-action #'projectile-find-file) ;; Drop into find-file on project switch
   (projectile-project-search-path '(("~/dev" . 2)))) ;; Search up to 2 subdirectory levels deep for projects
-;; Use Bookmarks for smaller, not standard projects
 
 (use-package eglot
   :ensure nil
@@ -374,22 +372,22 @@
 ;; Call this function to install missing grammars
 ;; (start/install-treesit-grammars)
 
-;; Optionally, add any additional mode remappings not covered by defaults
-(setq major-mode-remap-alist
-      '((yaml-mode . yaml-ts-mode)
-        (sh-mode . bash-ts-mode)
-        (c-mode . c-ts-mode)
-        (c++-mode . c++-ts-mode)
-        (css-mode . css-ts-mode)
-        (python-mode . python-ts-mode)
-        (mhtml-mode . html-ts-mode)
-        (javascript-mode . js-ts-mode)
-        (json-mode . json-ts-mode)
-        (lua-mode . lua-ts-mode)
-        (typescript-mode . typescript-ts-mode)
-        (conf-toml-mode . toml-ts-mode)
-        (elixir-mode . elixir-ts-mode)
-        ))
+;; Additional mode remappings not covered by defaults. Use add-to-list so we
+;; don't clobber entries set elsewhere (Emacs or other packages).
+(dolist (remap '((yaml-mode . yaml-ts-mode)
+                 (sh-mode . bash-ts-mode)
+                 (c-mode . c-ts-mode)
+                 (c++-mode . c++-ts-mode)
+                 (css-mode . css-ts-mode)
+                 (python-mode . python-ts-mode)
+                 (mhtml-mode . html-ts-mode)
+                 (javascript-mode . js-ts-mode)
+                 (json-mode . json-ts-mode)
+                 (lua-mode . lua-ts-mode)
+                 (typescript-mode . typescript-ts-mode)
+                 (conf-toml-mode . toml-ts-mode)
+                 (elixir-mode . elixir-ts-mode)))
+  (add-to-list 'major-mode-remap-alist remap))
 
 ;; Or if there is no built in mode
 (use-package cmake-ts-mode :ensure nil :mode ("CMakeLists\\.txt\\'" "\\.cmake\\'"))
@@ -408,20 +406,11 @@
   (org-return-follows-link t)          ;; RET follows links (TOC, URLs, etc.)
 
   :hook
-  (org-mode . org-indent-mode) ;; Indent text
-  ;; The following prevents <> from auto-pairing when electric-pair-mode is on.
-  ;; Otherwise, org-tempo is broken when you try to <s TAB...
-  ;;(org-mode . (lambda ()
-  ;;              (setq-local electric-pair-inhibit-predicate
-  ;;                          `(lambda (c)
-  ;;                             (if (char-equal c ?<) t (,electric-pair-inhibit-predicate c))))))
-  )
+  (org-mode . org-indent-mode))
 
 (use-package markdown-mode
-  :ensure t
   :mode ("README\\.md\\'" . gfm-mode)
-  :init (setq markdown-command "multimarkdown")
-  )
+  :init (setq markdown-command "multimarkdown"))
 
 (use-package elixir-ts-mode
   :hook
@@ -472,7 +461,6 @@ Returns nil if no matching entry is found."
 	(start/get-authinfo-secret "codestral.mistral.ai" "bearer"))
 
 (use-package gptel
-  :ensure t
   :config
   (let ((api-key (start/api-mistral-get-bearer-token)))
     (when api-key
@@ -486,7 +474,6 @@ Returns nil if no matching entry is found."
               :models '("mistral-small"))))))
 
 (use-package minuet
-  :ensure t
   :bind
   (("M-i" . #'minuet-show-suggestion) ;; use overlay for completion
    ("C-c m i" . #'minuet-complete-with-minibuffer) ;; use minibuffer for completion
@@ -518,7 +505,6 @@ Returns nil if no matching entry is found."
   )
 
 (use-package shell-maker
-  :ensure t
   :defer t)
 
 (use-package acp
@@ -564,11 +550,13 @@ Returns nil if no matching entry is found."
   :after corfu
   :init
   ;; Functions added later appear earlier in the completion list.
-  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  ;; Order from low to high priority — dabbrev (buffer-local words) is most
+  ;; useful for programming, so it goes last.
   (add-to-list 'completion-at-point-functions #'cape-dict)
   (add-to-list 'completion-at-point-functions #'cape-file)
   (add-to-list 'completion-at-point-functions #'cape-elisp-block)
-  (add-to-list 'completion-at-point-functions #'cape-keyword))
+  (add-to-list 'completion-at-point-functions #'cape-keyword)
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev))
 
 (use-package orderless
   :custom
@@ -594,7 +582,6 @@ Returns nil if no matching entry is found."
   (marginalia-mode . nerd-icons-completion-marginalia-setup))
 
 (use-package consult-project-extra
-  :ensure t
   :after (consult project)
   :commands (consult-project-extra-find consult-project-extra-find-other-window))
 
@@ -637,18 +624,13 @@ Returns nil if no matching entry is found."
   :custom (wgrep-auto-save-buffer t))
 
 (use-package helpful
-  :bind
-  ;; Note that the built-in `describe-function' includes both functions
-  ;; and macros. `helpful-function' is functions only, so we provide
-  ;; `helpful-callable' as a drop-in replacement.
-  ("C-h f" . helpful-callable)
-  ("C-h v" . helpful-variable)
-  ("C-h k" . helpful-key)
-  ("C-h x" . helpful-command)
-  )
+  ;; `helpful-callable' covers both functions and macros (drop-in for describe-function).
+  :bind (("C-h f" . helpful-callable)
+         ("C-h v" . helpful-variable)
+         ("C-h k" . helpful-key)
+         ("C-h x" . helpful-command)))
 
 (use-package treemacs
-  :ensure t
   :defer t
   :config
   (treemacs-follow-mode t)
@@ -677,16 +659,13 @@ Returns nil if no matching entry is found."
   (treemacs-load-theme "nerd-icons"))
 
 (use-package treemacs-projectile
-  :after (treemacs projectile)
-  :ensure t)
+  :after (treemacs projectile))
 
 (use-package treemacs-icons-dired
-  :hook (dired-mode . treemacs-icons-dired-enable-once)
-  :ensure t)
+  :hook (dired-mode . treemacs-icons-dired-enable-once))
 
 (use-package treemacs-magit
-  :after (treemacs magit)
-  :ensure t)
+  :after (treemacs magit))
 
 (use-package diminish)
 
