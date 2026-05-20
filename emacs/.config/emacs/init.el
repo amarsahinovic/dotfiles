@@ -56,7 +56,7 @@
   (message "Emacs loaded in %s with %d garbage collections."
            (format "%.2f seconds"
                    (float-time
-										(time-subtract after-init-time before-init-time)))
+                    (time-subtract after-init-time before-init-time)))
            gcs-done))
 
 (add-hook 'emacs-startup-hook #'start/display-startup-time)
@@ -81,11 +81,11 @@
     (advice-add fn :after (lambda (&rest _) (package-quickstart-refresh)))))
 
 (use-package emacs
-	:custom
-	(menu-bar-mode nil)         ;; Disable the menu bar
-	(scroll-bar-mode nil)       ;; Disable the scroll bar
-	(tool-bar-mode nil)         ;; Disable the tool bar
-	(inhibit-startup-screen t)  ;; Disable welcome screen
+  :custom
+  (menu-bar-mode nil)         ;; Disable the menu bar
+  (scroll-bar-mode nil)       ;; Disable the scroll bar
+  (tool-bar-mode nil)         ;; Disable the tool bar
+  (inhibit-startup-screen t)  ;; Disable welcome screen
 
   (delete-selection-mode t)   ;; Select text and delete it by typing.
   (electric-indent-mode nil)  ;; Turn off the weird indenting that Emacs does by default.
@@ -94,37 +94,33 @@
   (blink-cursor-mode nil)     ;; Don't blink cursor
   (global-auto-revert-mode t) ;; Automatically reload file and show changes if the file has changed
 
-  (recentf-mode t) ;; Enable recent file mode (needed by consult-recent-file)
+  (recentf-mode t)            ;; Enable recent file mode (needed by consult-recent-file)
 
   (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
   (global-display-line-numbers-mode t)    ;; Display line numbers (absolute by default)
-	(column-number-mode t)                  ;; Display column in mode line
+  (column-number-mode t)                  ;; Display column in mode line
 
-  (mouse-wheel-progressive-speed nil) ;; Disable progressive speed when scrolling
+  (mouse-wheel-progressive-speed nil)     ;; Disable progressive speed when scrolling
 
-	(use-short-answers t)  ;; Use short answers (y instead of yes)
+  (use-short-answers t)       ;; Use short answers (y instead of yes)
 
-	(indent-tabs-mode nil)
+  (indent-tabs-mode nil)
   (tab-width 2)
 
-  (make-backup-files nil) ;; Stop creating ~ backup files
-  (auto-save-default nil) ;; Stop creating # auto save files
+  (make-backup-files nil)     ;; Stop creating ~ backup files
+  (auto-save-default nil)     ;; Stop creating # auto save files
   :hook
-  (prog-mode . (lambda () (hs-minor-mode t))) ;; Enable folding hide/show globally
+  (prog-mode . hs-minor-mode) ;; Enable folding hide/show globally
   :config
-  ;; Move customization variables to a separate file and load it, avoid filling up init.el with unnecessary variables
+  ;; Move customization variables to a separate file so init.el stays clean.
   (setq custom-file (locate-user-emacs-file "custom-vars.el"))
   (load custom-file 'noerror 'nomessage)
-  :bind (
-         ([escape] . keyboard-escape-quit) ;; Makes Escape quit prompts (Minibuffer Escape)
-         ;; You can use the bindings C-+ C-- for zooming in/out. 
-				 ;; You can also use CTRL plus the mouse wheel for zooming in/out.
+  :bind (([escape] . keyboard-escape-quit) ;; Escape quits prompts (minibuffer escape)
+         ;; C-+ / C-- (or Ctrl + mouse wheel) for zoom in/out.
          ("C-+" . text-scale-increase)
          ("C--" . text-scale-decrease)
          ("<C-wheel-up>" . text-scale-increase)
-         ("<C-wheel-down>" . text-scale-decrease))
-
-  )
+         ("<C-wheel-down>" . text-scale-decrease)))
 
 (use-package avy
   :bind ("C-;" . avy-goto-char-timer))
@@ -256,11 +252,11 @@
 (load-theme 'modus-vivendi-tinted t)
 
 (use-package ultra-scroll
-	:init
-	(setq scroll-conservatively 101
-				scroll-margin 0)        ; important: scroll-margin>0 not yet supported
-	:config
-	(ultra-scroll-mode 1))
+  :init
+  (setq scroll-conservatively 101
+        scroll-margin 0)        ; important: scroll-margin>0 not yet supported
+  :config
+  (ultra-scroll-mode 1))
 
 (add-to-list 'default-frame-alist '(alpha-background . 95)) ;; For all new frames henceforth
 
@@ -295,8 +291,8 @@
 (use-package projectile
   :init
   (projectile-mode)
-	:config
-	(add-hook 'project-find-functions #'project-projectile)
+  :config
+  (add-hook 'project-find-functions #'project-projectile)
   :custom
   (projectile-run-use-comint-mode t) ;; Interactive run dialog when running projects inside emacs (like giving input)
   (projectile-switch-project-action #'projectile-find-file) ;; Drop into find-file on project switch
@@ -323,10 +319,10 @@
            '(("expert_linux_amd64" "--stdio") "start_lexical.sh")))))
 
 (use-package sideline-flymake
-	:hook (flymake-mode . sideline-mode)
-	:custom
-	(sideline-flymake-display-mode 'line) ;; Show errors on the current line
-	(sideline-backends-right '(sideline-flymake)))
+  :hook (flymake-mode . sideline-mode)
+  :custom
+  (sideline-flymake-display-mode 'line) ;; Show errors on the current line
+  (sideline-backends-right '(sideline-flymake)))
 
 (use-package yasnippet
   :hook (prog-mode . yas-minor-mode))
@@ -349,7 +345,7 @@
         (html "https://github.com/tree-sitter/tree-sitter-html")
         (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
         (json "https://github.com/tree-sitter/tree-sitter-json")
-				(lua "https://github.com/tjdevries/tree-sitter-lua")
+        (lua "https://github.com/tjdevries/tree-sitter-lua")
         (make "https://github.com/alemuller/tree-sitter-make")
         (markdown "https://github.com/ikatyang/tree-sitter-markdown")
         (python "https://github.com/tree-sitter/tree-sitter-python")
@@ -358,7 +354,7 @@
         (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
         (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
         (yaml "https://github.com/ikatyang/tree-sitter-yaml")
-				(heex "https://github.com/phoenixframework/tree-sitter-heex")
+        (heex "https://github.com/phoenixframework/tree-sitter-heex")
         (elixir "https://github.com/elixir-lang/tree-sitter-elixir")))
 
 (defun start/install-treesit-grammars ()
@@ -444,8 +440,8 @@
 (defun start/get-authinfo-secret (host user)
   "Retrieves and returns the secret from .authinfo given a host and user parameters.
 Returns nil if no matching entry is found."
-  ;; THIS data should be store in ~/.authinfo in the following format:
-	;; machine api.mistral.ai login bearer password api-key-goes-here
+  ;; Store credentials in ~/.authinfo as:
+  ;;   machine api.mistral.ai login bearer password api-key-goes-here
   (let* ((auth-data (car (auth-source-search :max 1 :host host :user user)))
          (secret-function (plist-get auth-data :secret)))
     (and secret-function (funcall secret-function))))
@@ -453,14 +449,15 @@ Returns nil if no matching entry is found."
 (defun start/api-mistral-get-bearer-token ()
   "Retrieves and returns the bearer token for Mistral API."
   (interactive)
-	(start/get-authinfo-secret "api.mistral.ai" "bearer"))
+  (start/get-authinfo-secret "api.mistral.ai" "bearer"))
 
 (defun start/codestral-mistral-get-bearer-token ()
-  "Retrieves and returns the bearer token for Mistral Codestrap API."
+  "Retrieves and returns the bearer token for Mistral Codestral API."
   (interactive)
-	(start/get-authinfo-secret "codestral.mistral.ai" "bearer"))
+  (start/get-authinfo-secret "codestral.mistral.ai" "bearer"))
 
 (use-package gptel
+  :commands (gptel gptel-send gptel-menu)
   :config
   (let ((api-key (start/api-mistral-get-bearer-token)))
     (when api-key
