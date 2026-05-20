@@ -125,6 +125,17 @@
 (use-package avy
   :bind ("C-;" . avy-goto-char-timer))
 
+(use-package ace-window
+  :bind ("M-o" . ace-window)
+  :custom
+  (aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)))
+
+(use-package expand-region
+  :bind ("C-=" . er/expand-region))
+
+(use-package vundo
+  :bind ("C-c u" . vundo))
+
 (use-package general
   :config
   ;; C-c f prefix: Find operations (files, projects, etc.)
@@ -285,6 +296,11 @@
 (use-package nerd-icons-ibuffer
   :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
 
+(use-package pulsar
+  :init (pulsar-global-mode 1)
+  :custom
+  (pulsar-pulse-on-window-change t))
+
 (add-to-list 'exec-path "~/.local/bin/")
 (add-to-list 'exec-path "~/dev/bin/")
 
@@ -325,12 +341,14 @@
   (sideline-backends-right '(sideline-flymake)))
 
 (use-package yasnippet
+  :diminish yas-minor-mode
   :hook (prog-mode . yas-minor-mode))
 
 (use-package yasnippet-snippets
   :after yasnippet)
 
 (use-package envrc
+  :diminish envrc-mode
   :hook (after-init . envrc-global-mode))
 
 (setq treesit-language-source-alist
@@ -428,9 +446,8 @@
   :commands toc-org-enable
   :hook (org-mode . toc-org-mode))
 
-(use-package org-superstar
-  :after org
-  :hook (org-mode . org-superstar-mode))
+(use-package org-modern
+  :hook (org-mode . org-modern-mode))
 
 (use-package org-tempo
   :ensure nil
@@ -684,7 +701,12 @@ Returns nil if no matching entry is found."
   (which-key-allow-imprecise-window-fit nil)) ;; Fixes which-key window slipping out in Emacs Daemon
 
 (use-package ws-butler
+  :diminish ws-butler-mode
   :init (ws-butler-global-mode))
+
+(use-package eldoc
+  :ensure nil
+  :diminish)
 
 ;; Make gc pauses faster by decreasing the threshold.
 (setq gc-cons-threshold (* 2 1000 1000))
