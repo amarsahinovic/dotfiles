@@ -301,8 +301,10 @@
   :custom
   (pulsar-pulse-on-window-change t))
 
-(add-to-list 'exec-path "~/.local/bin/")
-(add-to-list 'exec-path "~/dev/bin/")
+(use-package exec-path-from-shell
+  :init
+  (when (or (daemonp) (memq window-system '(mac ns x pgtk)))
+    (exec-path-from-shell-initialize)))
 
 (use-package projectile
   :init
@@ -317,22 +319,39 @@
 (use-package eglot
   :ensure nil
   :hook
-  (python-ts-mode . eglot-ensure)
+  ((python-ts-mode
+    elixir-ts-mode heex-ts-mode
+    typescript-ts-mode tsx-ts-mode js-ts-mode) . eglot-ensure)
+  :custom
+  (eglot-events-buffer-size 0)
+  (eglot-autoshutdown t)
+  (eglot-sync-connect 0)
+  (eglot-extend-to-xref t)
   :config
+  ;; Prefer pyright over pylsp/jedi for Python.
   (add-to-list 'eglot-server-programs
-               '((python-ts-mode python-mode) . ("pyright-langserver"))))
-
-(add-hook 'python-ts-mode-hook
-          (lambda () (add-hook 'before-save-hook #'eglot-format nil t)))
-
-;; Configure Elixir LSP only on Linux
-(when (eq system-type 'gnu/linux)
-  (with-eval-after-load 'eglot
-    (setf (alist-get '(elixir-mode elixir-ts-mode heex-ts-mode)
-                     eglot-server-programs
-                     nil nil #'equal)
+               '((python-ts-mode python-mode) . ("pyright-langserver" "--stdio")))
+  ;; Pyright workspace defaults. Django-friendly: basic typing, only diagnose
+  ;; open files (faster on big projects). Override per-project via .dir-locals.
+  (setq-default eglot-workspace-configuration
+                '(:python (:analysis (:typeCheckingMode "basic"
+                                      :diagnosticMode "openFilesOnly"
+                                      :autoImportCompletions t
+                                      :useLibraryCodeForTypes t))))
+  ;; Elixir: expert (next-gen) with lexical fallback. Linux-only binary name.
+  (when (eq system-type 'gnu/linux)
+    (setf (alist-get '(elixir-ts-mode elixir-mode heex-ts-mode)
+                     eglot-server-programs nil nil #'equal)
           (eglot-alternatives
-           '(("expert_linux_amd64" "--stdio") "start_lexical.sh")))))
+           '(("expert_linux_amd64" "--stdio") ("start_lexical.sh"))))))
+
+(use-package apheleia
+  :diminish apheleia-mode
+  :hook (after-init . apheleia-global-mode)
+  :config
+  ;; Use ruff for Python (fast, modern). Override to 'black if a project prefers.
+  (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff-isort ruff))
+  (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff-isort ruff)))
 
 (use-package sideline-flymake
   :hook (flymake-mode . sideline-mode)
@@ -423,13 +442,16 @@
   (org-mode . org-indent-mode))
 
 (use-package markdown-mode
-  :mode ("README\\.md\\'" . gfm-mode)
-  :init (setq markdown-command "multimarkdown"))
+  :mode (("\\.md\\'"  . gfm-mode)
+         ("\\.mdx\\'" . gfm-mode))
+  :custom
+  (markdown-command "pandoc")
+  (markdown-fontify-code-blocks-natively t)
+  (markdown-header-scaling t)
+  (markdown-italic-underscore t))
 
 (use-package elixir-ts-mode
   :hook
-  (elixir-ts-mode . eglot-ensure)
-  (heex-ts-mode   . eglot-ensure)
   (elixir-ts-mode . (lambda ()
                       (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
                       (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
@@ -439,8 +461,7 @@
                       (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
                       (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
                       (push '("|>" . ?\u25B7) prettify-symbols-alist)  ;; ▷
-                      (prettify-symbols-mode 1)))
-  (before-save . eglot-format))
+                      (prettify-symbols-mode 1))))
 
 (use-package toc-org
   :commands toc-org-enable
