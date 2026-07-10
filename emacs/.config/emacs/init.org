@@ -21,6 +21,7 @@
   - [[#modeline][Modeline]]
   - [[#nerd-icons][Nerd Icons]]
   - [[#pulsar][Pulsar]]
+  - [[#spacious-padding][Spacious Padding]]
 - [[#development][Development]]
   - [[#shell-environment][Shell environment]]
   - [[#projectile][Projectile]]
@@ -136,14 +137,14 @@ automatically exports the configuration here to the associated output files.
 #+end_src
 
 ** Use Package
-A macro that allows you to isolate package configuration in your .emacs file in a 
-way that is both performance-oriented and, well, tidy. We use it because it makes 
+A macro that allows you to isolate package configuration in your .emacs file in a
+way that is both performance-oriented and, well, tidy. We use it because it makes
 package configuration really easy.
 
 With Emacs 29 use-package is now built-in.
 
-This code eliminates the need to type :ensure t for each package download. 
-Instead, you’ll only need to use :ensure nil when you want to explicitly prevent a 
+This code eliminates the need to type :ensure t for each package download.
+Instead, you’ll only need to use :ensure nil when you want to explicitly prevent a
 package from being downloaded.
 #+begin_src emacs-lisp
   (require 'use-package-ensure) ;; Load use-package-always-ensure
@@ -165,13 +166,13 @@ Like Linux distributions, Emacs uses repositories to manage its packages.
 
 ** Package quickstart
 
-Improves startup times by allowing Emacs to precompute and generate a single, 
+Improves startup times by allowing Emacs to precompute and generate a single,
 large autoload file. Instead of re-computing them on every startup.
 
 The larger your configuration, the more it will be felt at startup.
 
-However, if you enable this, you’ll need to manually run the package-quickstart-refresh 
-command whenever your package activations change, such as when you modify the package-load-list 
+However, if you enable this, you’ll need to manually run the package-quickstart-refresh
+command whenever your package activations change, such as when you modify the package-load-list
 value. We put it inside Auto-tangle hook so when we save this file it runs it automatically.
 
 As I tested, it makes startup about 0.1 seconds faster. Avg:
@@ -180,7 +181,7 @@ Off: 0.66 sec
 On: 0.59 sec
 
 Package quickstart only works with package.el. If you plan to use a different
-package manager, remember to remove this section and the package-quickstart-refresh 
+package manager, remember to remove this section and the package-quickstart-refresh
 line in the Auto-tangle hook.
 
 #+begin_src emacs-lisp
@@ -430,7 +431,7 @@ Use consult-theme to easily try out themes (*Epilepsy* Warning).
           scroll-margin 0)        ; important: scroll-margin>0 not yet supported
     :config
     (ultra-scroll-mode 1))
-#+end_src 
+#+end_src
 
 ** Transparency
 With Emacs version 29, true transparency has been added.
@@ -489,6 +490,15 @@ switches, etc.) so the cursor is easy to find in a large file.
     :init (pulsar-global-mode 1)
     :custom
     (pulsar-pulse-on-window-change t))
+#+end_src
+
+** Spacious Padding
+Adds generous padding around windows and frames for a more comfortable,
+modern look. Increases internal borders and spacing around the mode line,
+header line, tab bar, and fringe.
+#+begin_src emacs-lisp
+  (use-package spacious-padding
+    :init (spacious-padding-mode 1))
 #+end_src
 
 * Development

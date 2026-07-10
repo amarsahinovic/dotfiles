@@ -301,6 +301,9 @@
   :custom
   (pulsar-pulse-on-window-change t))
 
+(use-package spacious-padding
+  :init (spacious-padding-mode 1))
+
 (use-package exec-path-from-shell
   :init
   (when (or (daemonp) (memq window-system '(mac ns x pgtk)))
