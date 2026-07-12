@@ -8,12 +8,6 @@ early-init.el
 # Package files
 elpa/
 eln-cache/
-auto-save-list/
-transient/
-recentf
-
-# Package quickstart cache
-package-quickstart.el
 
 # Other auto-generated files
 *.elc

@@ -1,38 +1,5 @@
 ;; GC tuning lives in early-init.el (startup) and the gcmh block (runtime).
 
-(defun start/remove-org-babel-results ()
-  "Remove all #+RESULTS blocks in the current org buffer."
-  (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (while (re-search-forward "^#\\+RESULTS:.*\n" nil t)
-      (let ((results-begin (match-beginning 0)))
-        ;; Find the end of the results block
-        (forward-line 1)
-        (let ((results-end (point)))
-          ;; Check if there's a drawer or example block
-          (cond
-           ;; Handle #+begin_example ... #+end_example blocks
-           ((looking-at "^#\\+begin_example")
-            (when (re-search-forward "^#\\+end_example" nil t)
-              (forward-line 1)
-              (setq results-end (point))))
-           ;; Handle : prefixed results
-           ((looking-at "^:")
-            (while (and (not (eobp)) (looking-at "^:"))
-              (forward-line 1))
-            (setq results-end (point)))
-           ;; Handle single line results
-           ((not (looking-at "^$\\|^#\\|^\\*"))
-            (forward-line 1)
-            (setq results-end (point))))
-          ;; Also remove any trailing blank line after results
-          (when (looking-at "^$")
-            (forward-line 1)
-            (setq results-end (point)))
-          ;; Delete the results block
-          (delete-region results-begin results-end))))))
-
 (defun start/org-babel-tangle-config ()
   "Automatically tangle our init.org config file when we save it."
   (interactive)
@@ -41,8 +8,6 @@
              ;; Use equal instead of string-equal as file-truename returns list-like structure
              (equal (file-truename (file-name-directory (buffer-file-name)))
                     (file-truename (expand-file-name user-emacs-directory))))
-    ;; Remove results blocks before tangling
-    (start/remove-org-babel-results)
     (let ((org-confirm-babel-evaluate nil)
           (warning-minimum-level :error)      ;; Suppress warnings, they are annoying
           (byte-compile-warnings nil))        ;; Disable byte-compile warnings
@@ -87,9 +52,8 @@
 
 (use-package emacs
   :custom
-  (menu-bar-mode nil)         ;; Disable the menu bar
-  (scroll-bar-mode nil)       ;; Disable the scroll bar
-  (tool-bar-mode nil)         ;; Disable the tool bar
+  ;; Menu/tool/scroll bars are disabled in early-init.el via frame params
+  ;; (they're never drawn), so we don't repeat the mode toggles here.
   (inhibit-startup-screen t)  ;; Disable welcome screen
 
   (delete-selection-mode t)   ;; Select text and delete it by typing.
@@ -253,7 +217,8 @@
     "r" '(projectile-run-project :wk "Run project")
     "k" '(projectile-kill-buffers :wk "Kill project buffers")
     "i" '(projectile-invalidate-cache :wk "Invalidate cache")
-    "D" '(projectile-dired :wk "Dired at root"))
+    "D" '(projectile-dired :wk "Dired at root")
+    "m" '(ghostel-project :wk "Terminal at root"))
 
   ;; Additional useful global bindings
   (general-define-key
@@ -514,7 +479,8 @@
 (use-package rust-ts-mode :ensure nil :mode "\\.rs\\'")
 (use-package tsx-ts-mode :ensure nil :mode "\\.tsx\\'")
 
-(use-package lua-mode
+(use-package lua-ts-mode
+  :ensure nil
   :mode "\\.lua\\'") ;; Only start in a lua file
 
 (use-package org
@@ -635,8 +601,31 @@ Returns nil if no matching entry is found."
   :vc (:url "https://github.com/xenodium/agent-shell")
   :defer t)
 
-(use-package eat
-  :hook (eshell-load-hook . eat-eshell-mode))
+(use-package ghostel
+  :bind (("C-x m" . ghostel)                 ;; Open a terminal
+         :map ghostel-semi-char-mode-map
+         ("C-s" . consult-line)              ;; Search the terminal buffer
+         ("M-<backspace>" . ghostel-backward-kill-word)
+         ("M-p" . (lambda () (interactive) (ghostel-send-key "p" "ctrl")))
+         ("M-n" . (lambda () (interactive) (ghostel-send-key "n" "ctrl"))))
+  :config
+  ;; Offer a terminal when switching projects via project.el's dispatcher.
+  (add-to-list 'project-switch-commands '(ghostel-project "Ghostel") t)
+  ;; Let the terminal call back into Emacs (e.g. open magit from the shell).
+  (add-to-list 'ghostel-eval-cmds
+               '("magit-status-setup-buffer" magit-status-setup-buffer)))
+
+;; Route eshell visual commands (top, htop, less, ...) through ghostel.
+(use-package ghostel-eshell
+  :ensure nil
+  :after ghostel
+  :hook (eshell-load . ghostel-eshell-visual-command-mode))
+
+;; Run `compile'/`recompile' output inside a ghostel terminal.
+(use-package ghostel-compile
+  :ensure nil
+  :after ghostel
+  :hook (after-init . ghostel-compile-global-mode))
 
 (defvar start/test-runner-alist
   '((python-ts-mode
@@ -936,3 +925,10 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
 (use-package eldoc
   :ensure nil
   :diminish)
+
+(use-package gcmh
+  :diminish gcmh-mode
+  :hook (after-init . gcmh-mode)
+  :custom
+  (gcmh-idle-delay 5)
+  (gcmh-high-cons-threshold (* 16 1024 1024)))

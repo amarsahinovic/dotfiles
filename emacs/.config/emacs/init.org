@@ -146,39 +146,6 @@ This snippet adds a hook to org-mode buffers so that start/org-babel-tangle-conf
 This function checks to see if the file being saved is the Emacs.org file you’re looking at right now, and if so,
 automatically exports the configuration here to the associated output files.
 #+begin_src emacs-lisp
-  (defun start/remove-org-babel-results ()
-    "Remove all #+RESULTS blocks in the current org buffer."
-    (interactive)
-    (save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward "^#\\+RESULTS:.*\n" nil t)
-        (let ((results-begin (match-beginning 0)))
-          ;; Find the end of the results block
-          (forward-line 1)
-          (let ((results-end (point)))
-            ;; Check if there's a drawer or example block
-            (cond
-             ;; Handle #+begin_example ... #+end_example blocks
-             ((looking-at "^#\\+begin_example")
-              (when (re-search-forward "^#\\+end_example" nil t)
-                (forward-line 1)
-                (setq results-end (point))))
-             ;; Handle : prefixed results
-             ((looking-at "^:")
-              (while (and (not (eobp)) (looking-at "^:"))
-                (forward-line 1))
-              (setq results-end (point)))
-             ;; Handle single line results
-             ((not (looking-at "^$\\|^#\\|^\\*"))
-              (forward-line 1)
-              (setq results-end (point))))
-            ;; Also remove any trailing blank line after results
-            (when (looking-at "^$")
-              (forward-line 1)
-              (setq results-end (point)))
-            ;; Delete the results block
-            (delete-region results-begin results-end))))))
-
   (defun start/org-babel-tangle-config ()
     "Automatically tangle our init.org config file when we save it."
     (interactive)
@@ -187,8 +154,6 @@ automatically exports the configuration here to the associated output files.
                ;; Use equal instead of string-equal as file-truename returns list-like structure
                (equal (file-truename (file-name-directory (buffer-file-name)))
                       (file-truename (expand-file-name user-emacs-directory))))
-      ;; Remove results blocks before tangling
-      (start/remove-org-babel-results)
       (let ((org-confirm-babel-evaluate nil)
             (warning-minimum-level :error)      ;; Suppress warnings, they are annoying
             (byte-compile-warnings nil))        ;; Disable byte-compile warnings
@@ -286,9 +251,8 @@ savehist).
 #+begin_src emacs-lisp
   (use-package emacs
     :custom
-    (menu-bar-mode nil)         ;; Disable the menu bar
-    (scroll-bar-mode nil)       ;; Disable the scroll bar
-    (tool-bar-mode nil)         ;; Disable the tool bar
+    ;; Menu/tool/scroll bars are disabled in early-init.el via frame params
+    ;; (they're never drawn), so we don't repeat the mode toggles here.
     (inhibit-startup-screen t)  ;; Disable welcome screen
 
     (delete-selection-mode t)   ;; Select text and delete it by typing.
@@ -486,7 +450,8 @@ Other global bindings:
       "r" '(projectile-run-project :wk "Run project")
       "k" '(projectile-kill-buffers :wk "Kill project buffers")
       "i" '(projectile-invalidate-cache :wk "Invalidate cache")
-      "D" '(projectile-dired :wk "Dired at root"))
+      "D" '(projectile-dired :wk "Dired at root")
+      "m" '(ghostel-project :wk "Terminal at root"))
 
     ;; Additional useful global bindings
     (general-define-key
@@ -894,9 +859,11 @@ If you want to use TreeSitter, check out this [[https://www.masteringemacs.org/a
 Currently it's tedious to use Treesitter, because emacs has not yet fully migrated to it.
 
 *** Lua mode
-Example, how to setup a language mode (if you don't want it, feel free to delete it).
+Use the built-in tree-sitter mode (Emacs 30+). Needs the =lua= grammar, which
+is installed by =start/install-treesit-grammars=.
 #+begin_src emacs-lisp
-  (use-package lua-mode
+  (use-package lua-ts-mode
+    :ensure nil
     :mode "\\.lua\\'") ;; Only start in a lua file
 #+end_src
 
@@ -1067,13 +1034,47 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
 #+end_src
 
 ** Terminal
-*** Eat
-Eat(Emulate A Terminal) is a terminal emulator within Emacs.
-It's more portable and less overhead for users over like vterm or eshell.
-We setup eat with eshell, if you want to use bash, zsh etc., check out their git [[https://codeberg.org/akib/emacs-eat][repository]] how to do it.
+*** Ghostel
+Ghostel is a terminal emulator powered by =libghostty-vt= (the VT engine behind
+the Ghostty terminal), so it's fast and speaks modern terminal protocols. The
+native module downloads automatically on first use, so the first =C-x m= may
+take a moment. Shell integration (directory tracking, prompt navigation) works
+out of the box for bash/zsh/fish with no RC edits.
+
+By default it starts in *semi-char* mode: most keys go to the terminal, but
+Emacs keeps =C-c=, =M-x=, etc. Switch modes with =C-c M-d= (char, all keys to
+term), =C-c C-e= (emacs, read-only navigation), =C-c C-t= (copy), =C-c C-l=
+(line). Return to semi-char with =C-c C-j=.
+
+=ghostel-eshell= and =ghostel-compile= are features bundled *inside* the
+=ghostel= package (not separate MELPA packages), so they use =:ensure nil= to
+avoid our =use-package-always-ensure= trying to install them.
 #+begin_src emacs-lisp
-  (use-package eat
-    :hook (eshell-load-hook . eat-eshell-mode))
+  (use-package ghostel
+    :bind (("C-x m" . ghostel)                 ;; Open a terminal
+           :map ghostel-semi-char-mode-map
+           ("C-s" . consult-line)              ;; Search the terminal buffer
+           ("M-<backspace>" . ghostel-backward-kill-word)
+           ("M-p" . (lambda () (interactive) (ghostel-send-key "p" "ctrl")))
+           ("M-n" . (lambda () (interactive) (ghostel-send-key "n" "ctrl"))))
+    :config
+    ;; Offer a terminal when switching projects via project.el's dispatcher.
+    (add-to-list 'project-switch-commands '(ghostel-project "Ghostel") t)
+    ;; Let the terminal call back into Emacs (e.g. open magit from the shell).
+    (add-to-list 'ghostel-eval-cmds
+                 '("magit-status-setup-buffer" magit-status-setup-buffer)))
+
+  ;; Route eshell visual commands (top, htop, less, ...) through ghostel.
+  (use-package ghostel-eshell
+    :ensure nil
+    :after ghostel
+    :hook (eshell-load . ghostel-eshell-visual-command-mode))
+
+  ;; Run `compile'/`recompile' output inside a ghostel terminal.
+  (use-package ghostel-compile
+    :ensure nil
+    :after ghostel
+    :hook (after-init . ghostel-compile-global-mode))
 #+end_src
 
 ** Test Runner
@@ -1494,7 +1495,7 @@ Instead of pinning =gc-cons-threshold= to a fixed value, =gcmh= ("GC Magic Hack"
 raises the threshold while you're actively working and collects garbage when
 Emacs goes idle. This avoids GC pauses mid-keystroke while still keeping memory
 in check. (=read-process-output-max= is set in [[#early-init][early-init.el]].)
-#:+begin_src emacs-lisp
+#+begin_src emacs-lisp
   (use-package gcmh
     :diminish gcmh-mode
     :hook (after-init . gcmh-mode)
