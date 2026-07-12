@@ -1,5 +1,4 @@
-;; The default is 800 kilobytes. Measured in bytes.
-(setq gc-cons-threshold (* 50 1000 1000))
+;; GC tuning lives in early-init.el (startup) and the gcmh block (runtime).
 
 (defun start/remove-org-babel-results ()
   "Remove all #+RESULTS blocks in the current org buffer."
@@ -35,7 +34,7 @@
           (delete-region results-begin results-end))))))
 
 (defun start/org-babel-tangle-config ()
-  "Automatically tangle our init.org config file and refresh package-quickstart when we save it."
+  "Automatically tangle our init.org config file when we save it."
   (interactive)
   (when (and (buffer-file-name)  ;; This handles nil buffer-file-name
              ;; Use file-truename to handle simlinks (eg. when using GNU stow)
@@ -47,8 +46,7 @@
     (let ((org-confirm-babel-evaluate nil)
           (warning-minimum-level :error)      ;; Suppress warnings, they are annoying
           (byte-compile-warnings nil))        ;; Disable byte-compile warnings
-      (org-babel-tangle)
-      (package-quickstart-refresh))))
+      (org-babel-tangle))))
 
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
 
@@ -69,16 +67,23 @@
                          ("elpa" . "https://elpa.gnu.org/packages/")
                          ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
 
-(setq package-quickstart t) ;; For blazingly fast startup times, this line makes startup miles faster
+(setq package-quickstart nil)
 
-;; Refresh the quickstart file after any package install/delete/upgrade so its
-;; autoloads don't go stale when upgrading outside of saving init.org.
-(dolist (fn '(package-install
-              package-delete
-              package-upgrade
-              package-upgrade-all))
-  (when (fboundp fn)
-    (advice-add fn :after (lambda (&rest _) (package-quickstart-refresh)))))
+(use-package no-littering
+  :demand t
+  :init
+  (setq no-littering-etc-directory (expand-file-name "etc/" user-emacs-directory)
+        no-littering-var-directory "~/.local/share/emacs/")
+  :config
+  ;; Keep auto-save files (if ever re-enabled) out of the way too.
+  (setq auto-save-file-name-transforms
+        `((".*" ,(no-littering-expand-var-file-name "auto-save/") t)))
+  ;; Don't clutter recentf with our own state files.
+  (with-eval-after-load 'recentf
+    (add-to-list 'recentf-exclude
+                 (recentf-expand-file-name no-littering-var-directory))
+    (add-to-list 'recentf-exclude
+                 (recentf-expand-file-name no-littering-etc-directory))))
 
 (use-package emacs
   :custom
@@ -95,6 +100,7 @@
   (global-auto-revert-mode t) ;; Automatically reload file and show changes if the file has changed
 
   (recentf-mode t)            ;; Enable recent file mode (needed by consult-recent-file)
+  (save-place-mode t)         ;; Reopen files at the cursor position you left them at
 
   (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
   (global-display-line-numbers-mode t)    ;; Display line numbers (absolute by default)
@@ -304,6 +310,42 @@
 (use-package spacious-padding
   :init (spacious-padding-mode 1))
 
+(use-package centaur-tabs
+  :demand t
+  :custom
+  (centaur-tabs-set-icons t)
+  (centaur-tabs-icon-type 'nerd-icons)
+  (centaur-tabs-gray-out-icons 'buffer)
+  (centaur-tabs-set-bar 'left)
+  (centaur-tabs-set-modified-marker t)
+  (centaur-tabs-modified-marker "•")
+  (centaur-tabs-close-button "✕")
+  (centaur-tabs-cycle-scope 'tabs)
+  (centaur-tabs-style "bar")
+  (centaur-tabs-height 32)
+  :config
+  ;; Only show "real" buffers as tabs (skip * and space-prefixed buffers).
+  (defun start/tabs-buffer-list ()
+    (seq-filter
+     (lambda (b)
+       (and (buffer-live-p b)
+            (let ((name (buffer-name b)))
+              (not (or (string-prefix-p " " name)
+                       (string-prefix-p "*" name)
+                       (string= name ""))))))
+     (buffer-list)))
+  (setq centaur-tabs-buffer-list-function #'start/tabs-buffer-list)
+  ;; Disable the tab bar in transient/popup buffers.
+  (dolist (hook '(dashboard-mode-hook calendar-mode-hook
+                  helpful-mode-hook help-mode-hook))
+    (add-hook hook #'centaur-tabs-local-mode))
+  (centaur-tabs-mode 1)
+  (centaur-tabs-group-by-projectile-project)
+  :bind
+  (("C-<tab>"   . centaur-tabs-forward)
+   ("C-S-<tab>" . centaur-tabs-backward)
+   ("C-c t T"   . centaur-tabs-mode)))  ;; Toggle the tab bar on/off
+
 (use-package exec-path-from-shell
   :init
   (when (or (daemonp) (memq window-system '(mac ns x pgtk)))
@@ -314,6 +356,9 @@
   (projectile-mode)
   :config
   (add-hook 'project-find-functions #'project-projectile)
+  ;; Auto-populate the known-projects list from the search path on load.
+  ;; Negligible cost under emacs --daemon since it only runs at server start.
+  (projectile-discover-projects-in-search-path)
   :custom
   (projectile-run-use-comint-mode t) ;; Interactive run dialog when running projects inside emacs (like giving input)
   (projectile-switch-project-action #'projectile-find-file) ;; Drop into find-file on project switch
@@ -348,6 +393,16 @@
           (eglot-alternatives
            '(("expert_linux_amd64" "--stdio") ("start_lexical.sh"))))))
 
+(defun start/eglot-capf ()
+  "Rebuild `completion-at-point-functions' after Eglot takes over."
+  (setq-local completion-at-point-functions
+              (list (cape-capf-super #'eglot-completion-at-point
+                                     #'yasnippet-capf)
+                    #'cape-file
+                    #'cape-dabbrev)))
+
+(add-hook 'eglot-managed-mode-hook #'start/eglot-capf)
+
 (use-package apheleia
   :diminish apheleia-mode
   :hook (after-init . apheleia-global-mode)
@@ -362,12 +417,39 @@
   (sideline-flymake-display-mode 'line) ;; Show errors on the current line
   (sideline-backends-right '(sideline-flymake)))
 
+(use-package eldoc-box
+  :diminish eldoc-box-hover-at-point-mode
+  :hook (eglot-managed-mode . eldoc-box-hover-at-point-mode)
+  :custom
+  (eldoc-echo-area-use-multiline-p nil) ;; Keep the echo area quiet; use the box
+  (eldoc-box-only-multi-line t)
+  (eldoc-box-max-pixel-width 500)
+  (eldoc-box-max-pixel-height 300))
+
+(use-package hl-todo
+  :hook (prog-mode . hl-todo-mode))
+
+(use-package devdocs
+  :bind ("C-h D" . devdocs-lookup))
+
+(use-package aggressive-indent
+  :diminish aggressive-indent-mode
+  :hook (emacs-lisp-mode . aggressive-indent-mode))
+
+(use-package highlight-defined
+  :hook (emacs-lisp-mode . highlight-defined-mode))
+
 (use-package yasnippet
   :diminish yas-minor-mode
   :hook (prog-mode . yas-minor-mode))
 
 (use-package yasnippet-snippets
   :after yasnippet)
+
+(use-package yasnippet-capf
+  :after yasnippet
+  :custom
+  (yasnippet-capf-lookup-by 'key)) ;; Match on snippet key (not name)
 
 (use-package envrc
   :diminish envrc-mode
@@ -556,8 +638,131 @@ Returns nil if no matching entry is found."
 (use-package eat
   :hook (eshell-load-hook . eat-eshell-mode))
 
+(defvar start/test-runner-alist
+  '((python-ts-mode
+     :run            "python %f"
+     :test-all       "python -m pytest"
+     :test-file      "python -m pytest %f"
+     :test-at-point  "python -m pytest %f::%t"
+     :test-single    "python -m pytest %f::%t -x")
+    (elixir-ts-mode
+     :run            "mix run %f"
+     :test-all       "mix test"
+     :test-file      "mix test %f"
+     :test-at-point  "mix test %f:%l"     ;; Elixir selects tests by line
+     :test-single    "mix test %f:%l"))
+  "Alist of major-mode -> command plist.
+Tokens: %f current file, %t test name at point, %l line, %d project root.")
+
+(defvar start/test-name-extractors
+  '((python-ts-mode . start/python-test-name-at-point))
+  "Alist of major-mode -> function returning the test name at point.")
+
+(defun start/python-test-name-at-point ()
+  (save-excursion
+    (end-of-line)
+    (when (re-search-backward "^\\s-*def \\(test_[A-Za-z0-9_]+\\)" nil t)
+      (match-string-no-properties 1))))
+
+(defun start/test--get-config (key)
+  (let ((entry (or (alist-get major-mode start/test-runner-alist)
+                   (cl-loop for (mode . plist) in start/test-runner-alist
+                            when (derived-mode-p mode) return plist))))
+    (when entry (plist-get entry key))))
+
+(defun start/test--name-at-point ()
+  (let ((fn (alist-get major-mode start/test-name-extractors)))
+    (when fn (funcall fn))))
+
+(defun start/test--project-root ()
+  (if-let ((proj (project-current))) (project-root proj) default-directory))
+
+(defun start/test--resolve-cmd (cmd)
+  (let* ((file  (or (buffer-file-name) ""))
+         (root  (start/test--project-root))
+         (tname (or (start/test--name-at-point) ""))
+         (line  (number-to-string (line-number-at-pos))))
+    (thread-last cmd
+                 (string-replace "%f" file)
+                 (string-replace "%t" tname)
+                 (string-replace "%l" line)
+                 (string-replace "%d" root))))
+
+(defun start/test--run (key)
+  (let ((cmd (start/test--get-config key)))
+    (unless cmd
+      (user-error "No %s command configured for %s" key major-mode))
+    (let* ((resolved (start/test--resolve-cmd cmd))
+           ;; With a prefix arg, edit the command before running it.
+           (final    (if current-prefix-arg
+                         (read-string "Command: " resolved)
+                       resolved))
+           (default-directory (start/test--project-root)))
+      (compile final))))
+
+(defun start/run ()          (interactive) (start/test--run :run))
+(defun start/test-all ()     (interactive) (start/test--run :test-all))
+(defun start/test-file ()    (interactive) (start/test--run :test-file))
+(defun start/test-rerun ()   (interactive) (recompile))
+(defun start/test-at-point () (interactive) (start/test--run :test-at-point))
+(defun start/test-single ()  (interactive) (start/test--run :test-single))
+
+;; C-c r prefix: Run/test operations
+(with-eval-after-load 'general
+  (general-create-definer start/run-keys :prefix "C-c r")
+  (start/run-keys
+    "" '(:ignore t :wk "Run/Test")
+    "r" '(start/run :wk "Run file/project")
+    "t" '(start/test-at-point :wk "Test at point")
+    "s" '(start/test-single :wk "Test at point (stop on first fail)")
+    "f" '(start/test-file :wk "Test file")
+    "a" '(start/test-all :wk "Test all")
+    "l" '(start/test-rerun :wk "Re-run last (recompile)")))
+
+(use-package dired
+  :ensure nil
+  :custom
+  (dired-listing-switches "-lAh --group-directories-first --no-group")
+  (dired-dwim-target t)                          ;; Guess target dir from other window
+  (dired-kill-when-opening-new-dired-buffer t)   ;; Don't accumulate Dired buffers
+  (dired-recursive-copies 'always)
+  (dired-recursive-deletes 'top)
+  (dired-create-destination-dirs 'ask)
+  (delete-by-moving-to-trash t))
+
+;; Hide dotfiles by default; toggle with C-x M-o (dired-omit-mode).
+(use-package dired-x
+  :ensure nil
+  :hook (dired-mode . dired-omit-mode)
+  :custom
+  (dired-omit-verbose nil)
+  (dired-omit-files (concat "\\(?:^\\|/\\)\\.")))
+
+(use-package dirvish
+  :init (dirvish-override-dired-mode)
+  :custom
+  (dirvish-attributes '(nerd-icons subtree-state file-size))
+  (dirvish-use-header-line t)
+  (dirvish-header-line-format '(:left (path) :right (free-space)))
+  (dirvish-subtree-always-show-state t)
+  (dirvish-reuse-session 'open)
+  (dirvish-preview-dispatchers '(image gif video audio epub archive pdf))
+  :bind
+  (:map dirvish-mode-map
+        ("TAB"   . dirvish-subtree-toggle)
+        ("<tab>" . dirvish-subtree-toggle)))
+
+;; Extra font-lock (colored file types/permissions) in Dired buffers.
+(use-package diredfl
+  :hook (dired-mode . diredfl-mode))
+
 (use-package magit
-  :commands magit-status)
+  :commands magit-status
+  :custom
+  ;; Open the status buffer full-frame, and restore the previous window
+  ;; layout when you bury it (q).
+  (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
+  (magit-bury-buffer-function #'magit-restore-window-configuration))
 
 (use-package diff-hl
   :hook ((dired-mode         . diff-hl-dired-mode-unless-remote)
@@ -731,8 +936,3 @@ Returns nil if no matching entry is found."
 (use-package eldoc
   :ensure nil
   :diminish)
-
-;; Make gc pauses faster by decreasing the threshold.
-(setq gc-cons-threshold (* 2 1000 1000))
-;; Increase the amount of data which Emacs reads from the process
-(setq read-process-output-max (* 1024 1024)) ;; 1mb

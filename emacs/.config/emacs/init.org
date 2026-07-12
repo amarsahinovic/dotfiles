@@ -3,6 +3,7 @@
 #+Options: toc:2
 
 * Table Of Contents                                                     :toc:
+- [[#early-init][Early Init]]
 - [[#core-setup-and-performance][Core setup and performance]]
   - [[#startup-performance][Startup Performance]]
   - [[#auto-tangle-configuration-file][Auto-tangle Configuration file]]
@@ -10,6 +11,7 @@
   - [[#use-package][Use Package]]
   - [[#setting-package-repositories][Setting package repositories]]
   - [[#package-quickstart][Package quickstart]]
+  - [[#no-littering][No Littering]]
   - [[#good-defaults][Good Defaults]]
 - [[#important-to-load-first][Important to load first]]
   - [[#traditional-emacs-style-keybindings][Traditional Emacs-style Keybindings]]
@@ -22,18 +24,27 @@
   - [[#nerd-icons][Nerd Icons]]
   - [[#pulsar][Pulsar]]
   - [[#spacious-padding][Spacious Padding]]
+  - [[#tabs][Tabs]]
 - [[#development][Development]]
   - [[#shell-environment][Shell environment]]
   - [[#projectile][Projectile]]
   - [[#eglot][Eglot]]
   - [[#apheleia][Apheleia]]
   - [[#sideline-flymake][Sideline-flymake]]
+  - [[#eldoc-box][Eldoc Box]]
+  - [[#hl-todo][Hl-todo]]
+  - [[#devdocs][Devdocs]]
+  - [[#emacs-lisp][Emacs Lisp]]
   - [[#yasnippet][Yasnippet]]
   - [[#envrc][Envrc]]
   - [[#treesitter][Treesitter]]
   - [[#language-modes][Language modes]]
   - [[#ai][AI]]
   - [[#terminal][Terminal]]
+  - [[#test-runner][Test Runner]]
+- [[#files][Files]]
+  - [[#dired][Dired]]
+  - [[#dirvish][Dirvish]]
 - [[#version-control][Version control]]
   - [[#git][Git]]
 - [[#completion][Completion]]
@@ -53,12 +64,75 @@
   - [[#eldoc][Eldoc]]
 - [[#runtime-performance][Runtime Performance]]
 
+* Early Init
+=early-init.el= is loaded before the package system and the GUI frame are
+initialized, so it's the right place for startup-performance tweaks and for
+suppressing UI chrome before it's ever drawn. This block tangles to
+=./early-init.el= (a different target than the rest of this file).
+
+Notes:
+- We maximize the GC threshold for startup and hand it back to [[#runtime-performance][gcmh]] at runtime.
+- Nulling =file-name-handler-alist= skips a regex scan on every =load=/=require=.
+- Setting the menu/tool/scroll bars via =default-frame-alist= means they're
+  never drawn (faster than disabling the modes after the frame exists).
+- We deliberately leave =package.el= enabled — this config uses =package.el= +
+  =package-quickstart=, so we must *not* set =package-enable-at-startup= to nil.
+#+begin_src emacs-lisp :tangle ./early-init.el
+  ;;; early-init.el --- Loaded before the package system and UI -*- lexical-binding: t; -*-
+
+  ;; Maximize the GC threshold during startup; gcmh takes over at runtime.
+  (setq gc-cons-threshold most-positive-fixnum
+        gc-cons-percentage 1.0)
+
+  ;; Skip regex matching against `file-name-handler-alist' on every load/require
+  ;; during startup, then restore it so TRAMP, compressed files, etc. keep working.
+  (defvar start/--file-name-handler-alist file-name-handler-alist)
+  (setq file-name-handler-alist nil)
+  (add-hook 'emacs-startup-hook
+            (lambda ()
+              (setq file-name-handler-alist start/--file-name-handler-alist
+                    ;; Hand a sane threshold back before gcmh (deferred) kicks in.
+                    gc-cons-threshold (* 16 1024 1024)
+                    gc-cons-percentage 0.1)))
+
+  ;; Disable UI chrome by setting frame parameters directly so the bars are
+  ;; never drawn (faster than toggling the modes after the frame exists).
+  (push '(menu-bar-lines . 0) default-frame-alist)
+  (push '(tool-bar-lines . 0) default-frame-alist)
+  (push '(vertical-scroll-bars) default-frame-alist)
+  (push '(horizontal-scroll-bars) default-frame-alist)
+  (setq menu-bar-mode nil
+        tool-bar-mode nil
+        scroll-bar-mode nil)
+
+  ;; Startup / redisplay performance.
+  (setq frame-inhibit-implied-resize t
+        frame-resize-pixelwise t
+        auto-mode-case-fold nil
+        load-prefer-newer t
+        read-process-output-max (* 2 1024 1024)
+        inhibit-compacting-font-caches t)
+
+  ;; Native-comp: compile asynchronously, don't nag about warnings.
+  (setq native-comp-async-report-warnings-errors 'silent)
+
+  ;; package.el stays enabled (this config uses it). We disable
+  ;; `package-quickstart' HERE — it must be set before `package-activate-all'
+  ;; runs (between early-init and init), otherwise startup loads a stale
+  ;; quickstart file and newly installed packages fail to activate. With it nil,
+  ;; package.el scans elpa/ normally. Do NOT set `package-enable-at-startup' nil.
+  (setq package-quickstart nil)
+
+  (provide 'early-init)
+#+end_src
+
 * Core setup and performance
 ** Startup Performance
-Make startup faster by reducing the frequency of garbage collection. This will be set back when startup finishes.
+Garbage collection is now handled in two places: =early-init.el= maximizes the
+threshold for startup, and [[#runtime-performance][gcmh]] manages it at runtime. Nothing to do here — this
+section is kept as an anchor for the table of contents.
 #+begin_src emacs-lisp
-  ;; The default is 800 kilobytes. Measured in bytes.
-  (setq gc-cons-threshold (* 50 1000 1000))
+  ;; GC tuning lives in early-init.el (startup) and the gcmh block (runtime).
 #+end_src
 
 ** Auto-tangle Configuration file
@@ -106,7 +180,7 @@ automatically exports the configuration here to the associated output files.
             (delete-region results-begin results-end))))))
 
   (defun start/org-babel-tangle-config ()
-    "Automatically tangle our init.org config file and refresh package-quickstart when we save it."
+    "Automatically tangle our init.org config file when we save it."
     (interactive)
     (when (and (buffer-file-name)  ;; This handles nil buffer-file-name
                ;; Use file-truename to handle simlinks (eg. when using GNU stow)
@@ -118,8 +192,7 @@ automatically exports the configuration here to the associated output files.
       (let ((org-confirm-babel-evaluate nil)
             (warning-minimum-level :error)      ;; Suppress warnings, they are annoying
             (byte-compile-warnings nil))        ;; Disable byte-compile warnings
-        (org-babel-tangle)
-        (package-quickstart-refresh))))
+        (org-babel-tangle))))
 
   (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
 #+end_src
@@ -165,36 +238,48 @@ Like Linux distributions, Emacs uses repositories to manage its packages.
 
 
 ** Package quickstart
+=package-quickstart= precomputes a single autoload file to shave ~0.1s off
+startup. *Disabled here* for two reasons:
 
-Improves startup times by allowing Emacs to precompute and generate a single,
-large autoload file. Instead of re-computing them on every startup.
+1. This Emacs runs as a daemon, so one-time startup cost is irrelevant.
+2. It conflicts with =no-littering=, which relocates =package-quickstart-file= to
+   the var directory. At startup Emacs reads the quickstart file *before*
+   no-littering loads (so it reads the old config-dir copy), while refreshes get
+   written to the var-dir copy — the two drift apart and newly installed
+   packages fail to activate ("Cannot load ...").
 
-The larger your configuration, the more it will be felt at startup.
-
-However, if you enable this, you’ll need to manually run the package-quickstart-refresh
-command whenever your package activations change, such as when you modify the package-load-list
-value. We put it inside Auto-tangle hook so when we save this file it runs it automatically.
-
-As I tested, it makes startup about 0.1 seconds faster. Avg:
-
-Off: 0.66 sec
-On: 0.59 sec
-
-Package quickstart only works with package.el. If you plan to use a different
-package manager, remember to remove this section and the package-quickstart-refresh
-line in the Auto-tangle hook.
-
+With it off, =package.el= scans =elpa/= at startup and picks up new packages
+automatically, with no refresh dance.
 #+begin_src emacs-lisp
-  (setq package-quickstart t) ;; For blazingly fast startup times, this line makes startup miles faster
+  (setq package-quickstart nil)
+#+end_src
 
-  ;; Refresh the quickstart file after any package install/delete/upgrade so its
-  ;; autoloads don't go stale when upgrading outside of saving init.org.
-  (dolist (fn '(package-install
-                package-delete
-                package-upgrade
-                package-upgrade-all))
-    (when (fboundp fn)
-      (advice-add fn :after (lambda (&rest _) (package-quickstart-refresh)))))
+** No Littering
+Keeps =~/.config/emacs= tidy by redirecting the state files that packages
+scatter around (recentf, savehist, save-place, projectile caches, url, eln,
+etc.) into two well-known directories. This must load *before* the packages
+that write those files — hence before Good Defaults (which turns on recentf and
+savehist).
+
+- =etc/= holds configuration-ish files you might want to keep.
+- =var= holds volatile state; we point it at =~/.local/share/emacs/= so it's out
+  of the config repo entirely. Add =/var/= to =.gitignore= if you ever move it back in.
+#+begin_src emacs-lisp
+  (use-package no-littering
+    :demand t
+    :init
+    (setq no-littering-etc-directory (expand-file-name "etc/" user-emacs-directory)
+          no-littering-var-directory "~/.local/share/emacs/")
+    :config
+    ;; Keep auto-save files (if ever re-enabled) out of the way too.
+    (setq auto-save-file-name-transforms
+          `((".*" ,(no-littering-expand-var-file-name "auto-save/") t)))
+    ;; Don't clutter recentf with our own state files.
+    (with-eval-after-load 'recentf
+      (add-to-list 'recentf-exclude
+                   (recentf-expand-file-name no-littering-var-directory))
+      (add-to-list 'recentf-exclude
+                   (recentf-expand-file-name no-littering-etc-directory))))
 #+end_src
 
 ** Good Defaults
@@ -214,6 +299,7 @@ line in the Auto-tangle hook.
     (global-auto-revert-mode t) ;; Automatically reload file and show changes if the file has changed
 
     (recentf-mode t)            ;; Enable recent file mode (needed by consult-recent-file)
+    (save-place-mode t)         ;; Reopen files at the cursor position you left them at
 
     (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
     (global-display-line-numbers-mode t)    ;; Display line numbers (absolute by default)
@@ -501,6 +587,49 @@ header line, tab bar, and fringe.
     :init (spacious-padding-mode 1))
 #+end_src
 
+** Tabs
+=centaur-tabs= shows open buffers as tabs along the top, grouped by project (via
+projectile). Ephemeral buffers (=*Messages*=, minibuffer helpers, etc.) are
+filtered out, and popup-ish buffers (dashboard, help) don't get a tab bar.
+Navigate with =C-TAB= / =C-S-TAB=.
+#+begin_src emacs-lisp
+  (use-package centaur-tabs
+    :demand t
+    :custom
+    (centaur-tabs-set-icons t)
+    (centaur-tabs-icon-type 'nerd-icons)
+    (centaur-tabs-gray-out-icons 'buffer)
+    (centaur-tabs-set-bar 'left)
+    (centaur-tabs-set-modified-marker t)
+    (centaur-tabs-modified-marker "•")
+    (centaur-tabs-close-button "✕")
+    (centaur-tabs-cycle-scope 'tabs)
+    (centaur-tabs-style "bar")
+    (centaur-tabs-height 32)
+    :config
+    ;; Only show "real" buffers as tabs (skip * and space-prefixed buffers).
+    (defun start/tabs-buffer-list ()
+      (seq-filter
+       (lambda (b)
+         (and (buffer-live-p b)
+              (let ((name (buffer-name b)))
+                (not (or (string-prefix-p " " name)
+                         (string-prefix-p "*" name)
+                         (string= name ""))))))
+       (buffer-list)))
+    (setq centaur-tabs-buffer-list-function #'start/tabs-buffer-list)
+    ;; Disable the tab bar in transient/popup buffers.
+    (dolist (hook '(dashboard-mode-hook calendar-mode-hook
+                    helpful-mode-hook help-mode-hook))
+      (add-hook hook #'centaur-tabs-local-mode))
+    (centaur-tabs-mode 1)
+    (centaur-tabs-group-by-projectile-project)
+    :bind
+    (("C-<tab>"   . centaur-tabs-forward)
+     ("C-S-<tab>" . centaur-tabs-backward)
+     ("C-c t T"   . centaur-tabs-mode)))  ;; Toggle the tab bar on/off
+#+end_src
+
 * Development
 
 ** Shell environment
@@ -522,6 +651,9 @@ Project interaction library for Emacs.
     (projectile-mode)
     :config
     (add-hook 'project-find-functions #'project-projectile)
+    ;; Auto-populate the known-projects list from the search path on load.
+    ;; Negligible cost under emacs --daemon since it only runs at server start.
+    (projectile-discover-projects-in-search-path)
     :custom
     (projectile-run-use-comint-mode t) ;; Interactive run dialog when running projects inside emacs (like giving input)
     (projectile-switch-project-action #'projectile-find-file) ;; Drop into find-file on project switch
@@ -575,6 +707,27 @@ If you can use a package manager just install the lsp server and add a hook.
              '(("expert_linux_amd64" "--stdio") ("start_lexical.sh"))))))
 #+end_src
 
+*** Completion-at-point wiring
+When Eglot activates it *replaces* =completion-at-point-functions= with just its
+own LSP source, silently dropping the global Cape capfs (dabbrev/file/snippets)
+added in the [[#cape][Cape]] section. This hook runs after Eglot takes over and rebuilds
+the stack:
+
+- =cape-capf-super= merges the LSP source and =yasnippet-capf= into one candidate
+  list so snippets and LSP completions compete on equal footing in the popup.
+- =cape-file= and =cape-dabbrev= stay as separate lower-priority fallbacks.
+#+begin_src emacs-lisp
+  (defun start/eglot-capf ()
+    "Rebuild `completion-at-point-functions' after Eglot takes over."
+    (setq-local completion-at-point-functions
+                (list (cape-capf-super #'eglot-completion-at-point
+                                       #'yasnippet-capf)
+                      #'cape-file
+                      #'cape-dabbrev)))
+
+  (add-hook 'eglot-managed-mode-hook #'start/eglot-capf)
+#+end_src
+
 ** Apheleia
 Async format-on-save using external CLI tools (ruff/black for Python,
 mix-format for Elixir, prettier for JS/TS). Non-blocking, runs in the
@@ -599,7 +752,53 @@ background. Picks tools off PATH — envrc activates project venvs first.
     (sideline-backends-right '(sideline-flymake)))
 #+end_src
 
+** Eldoc Box
+Shows documentation for the symbol at point in a floating child frame (a nicer,
+IDE-like alternative to reading it in the echo area). Only kicks in for
+Eglot-managed buffers; =C-c e d= (=eldoc-doc-buffer=) is still there for the full
+doc buffer.
+#+begin_src emacs-lisp
+  (use-package eldoc-box
+    :diminish eldoc-box-hover-at-point-mode
+    :hook (eglot-managed-mode . eldoc-box-hover-at-point-mode)
+    :custom
+    (eldoc-echo-area-use-multiline-p nil) ;; Keep the echo area quiet; use the box
+    (eldoc-box-only-multi-line t)
+    (eldoc-box-max-pixel-width 500)
+    (eldoc-box-max-pixel-height 300))
+#+end_src
+
+** Hl-todo
+Highlights =TODO=, =FIXME=, =HACK=, =NOTE= and friends in code comments.
+#+begin_src emacs-lisp
+  (use-package hl-todo
+    :hook (prog-mode . hl-todo-mode))
+#+end_src
+
+** Devdocs
+Offline documentation browser backed by [[https://devdocs.io][devdocs.io]]. Run =devdocs-install= once per
+language to download a doc set, then =C-h D= to look up the symbol at point.
+#+begin_src emacs-lisp
+  (use-package devdocs
+    :bind ("C-h D" . devdocs-lookup))
+#+end_src
+
+** Emacs Lisp
+Quality-of-life for editing Elisp: keep forms correctly indented as you type,
+and fontify known function/variable names.
+#+begin_src emacs-lisp
+  (use-package aggressive-indent
+    :diminish aggressive-indent-mode
+    :hook (emacs-lisp-mode . aggressive-indent-mode))
+
+  (use-package highlight-defined
+    :hook (emacs-lisp-mode . highlight-defined-mode))
+#+end_src
+
 ** Yasnippet
+=yasnippet-capf= exposes snippets as a completion-at-point source so they show
+up in the Corfu popup. It's wired into the eglot completion stack in the [[#eglot][Eglot]]
+section (=cape-capf-super= merges it with the LSP source).
 #+begin_src emacs-lisp
   (use-package yasnippet
     :diminish yas-minor-mode
@@ -607,6 +806,11 @@ background. Picks tools off PATH — envrc activates project venvs first.
 
   (use-package yasnippet-snippets
     :after yasnippet)
+
+  (use-package yasnippet-capf
+    :after yasnippet
+    :custom
+    (yasnippet-capf-lookup-by 'key)) ;; Match on snippet key (not name)
 #+end_src
 
 ** Envrc
@@ -872,6 +1076,149 @@ We setup eat with eshell, if you want to use bash, zsh etc., check out their git
     :hook (eshell-load-hook . eat-eshell-mode))
 #+end_src
 
+** Test Runner
+A small, language-agnostic dispatcher for running tests/benchmarks from the
+current buffer. Each major mode maps to a plist of command templates; tokens are
+expanded before running: =%f= current file, =%t= test name at point, =%l= current
+line number, =%d= project root. Everything runs through =compile= so you get a
+=*compilation*= buffer with clickable errors. Bound under =C-c r=.
+
+Add a language by extending =start/test-runner-alist= (and, for =:test-at-point=,
+=start/test-name-extractors= if the runner selects by name rather than line).
+#+begin_src emacs-lisp
+  (defvar start/test-runner-alist
+    '((python-ts-mode
+       :run            "python %f"
+       :test-all       "python -m pytest"
+       :test-file      "python -m pytest %f"
+       :test-at-point  "python -m pytest %f::%t"
+       :test-single    "python -m pytest %f::%t -x")
+      (elixir-ts-mode
+       :run            "mix run %f"
+       :test-all       "mix test"
+       :test-file      "mix test %f"
+       :test-at-point  "mix test %f:%l"     ;; Elixir selects tests by line
+       :test-single    "mix test %f:%l"))
+    "Alist of major-mode -> command plist.
+  Tokens: %f current file, %t test name at point, %l line, %d project root.")
+
+  (defvar start/test-name-extractors
+    '((python-ts-mode . start/python-test-name-at-point))
+    "Alist of major-mode -> function returning the test name at point.")
+
+  (defun start/python-test-name-at-point ()
+    (save-excursion
+      (end-of-line)
+      (when (re-search-backward "^\\s-*def \\(test_[A-Za-z0-9_]+\\)" nil t)
+        (match-string-no-properties 1))))
+
+  (defun start/test--get-config (key)
+    (let ((entry (or (alist-get major-mode start/test-runner-alist)
+                     (cl-loop for (mode . plist) in start/test-runner-alist
+                              when (derived-mode-p mode) return plist))))
+      (when entry (plist-get entry key))))
+
+  (defun start/test--name-at-point ()
+    (let ((fn (alist-get major-mode start/test-name-extractors)))
+      (when fn (funcall fn))))
+
+  (defun start/test--project-root ()
+    (if-let ((proj (project-current))) (project-root proj) default-directory))
+
+  (defun start/test--resolve-cmd (cmd)
+    (let* ((file  (or (buffer-file-name) ""))
+           (root  (start/test--project-root))
+           (tname (or (start/test--name-at-point) ""))
+           (line  (number-to-string (line-number-at-pos))))
+      (thread-last cmd
+                   (string-replace "%f" file)
+                   (string-replace "%t" tname)
+                   (string-replace "%l" line)
+                   (string-replace "%d" root))))
+
+  (defun start/test--run (key)
+    (let ((cmd (start/test--get-config key)))
+      (unless cmd
+        (user-error "No %s command configured for %s" key major-mode))
+      (let* ((resolved (start/test--resolve-cmd cmd))
+             ;; With a prefix arg, edit the command before running it.
+             (final    (if current-prefix-arg
+                           (read-string "Command: " resolved)
+                         resolved))
+             (default-directory (start/test--project-root)))
+        (compile final))))
+
+  (defun start/run ()          (interactive) (start/test--run :run))
+  (defun start/test-all ()     (interactive) (start/test--run :test-all))
+  (defun start/test-file ()    (interactive) (start/test--run :test-file))
+  (defun start/test-rerun ()   (interactive) (recompile))
+  (defun start/test-at-point () (interactive) (start/test--run :test-at-point))
+  (defun start/test-single ()  (interactive) (start/test--run :test-single))
+
+  ;; C-c r prefix: Run/test operations
+  (with-eval-after-load 'general
+    (general-create-definer start/run-keys :prefix "C-c r")
+    (start/run-keys
+      "" '(:ignore t :wk "Run/Test")
+      "r" '(start/run :wk "Run file/project")
+      "t" '(start/test-at-point :wk "Test at point")
+      "s" '(start/test-single :wk "Test at point (stop on first fail)")
+      "f" '(start/test-file :wk "Test file")
+      "a" '(start/test-all :wk "Test all")
+      "l" '(start/test-rerun :wk "Re-run last (recompile)")))
+#+end_src
+
+* Files
+** Dired
+Sensible built-in Dired defaults: human-readable sizes, directories first,
+reuse a single Dired buffer instead of piling them up, and move deletions to
+trash.
+#+begin_src emacs-lisp
+  (use-package dired
+    :ensure nil
+    :custom
+    (dired-listing-switches "-lAh --group-directories-first --no-group")
+    (dired-dwim-target t)                          ;; Guess target dir from other window
+    (dired-kill-when-opening-new-dired-buffer t)   ;; Don't accumulate Dired buffers
+    (dired-recursive-copies 'always)
+    (dired-recursive-deletes 'top)
+    (dired-create-destination-dirs 'ask)
+    (delete-by-moving-to-trash t))
+
+  ;; Hide dotfiles by default; toggle with C-x M-o (dired-omit-mode).
+  (use-package dired-x
+    :ensure nil
+    :hook (dired-mode . dired-omit-mode)
+    :custom
+    (dired-omit-verbose nil)
+    (dired-omit-files (concat "\\(?:^\\|/\\)\\.")))
+#+end_src
+
+** Dirvish
+A polished front-end for Dired: file icons, a header line with path and free
+space, image/pdf/video previews, and collapsible subtrees. =dirvish-override-dired-mode=
+makes every Dired buffer use it. Navigation keeps the standard Dired keys; the
+only extra binding is =TAB= to expand/collapse a directory subtree.
+#+begin_src emacs-lisp
+  (use-package dirvish
+    :init (dirvish-override-dired-mode)
+    :custom
+    (dirvish-attributes '(nerd-icons subtree-state file-size))
+    (dirvish-use-header-line t)
+    (dirvish-header-line-format '(:left (path) :right (free-space)))
+    (dirvish-subtree-always-show-state t)
+    (dirvish-reuse-session 'open)
+    (dirvish-preview-dispatchers '(image gif video audio epub archive pdf))
+    :bind
+    (:map dirvish-mode-map
+          ("TAB"   . dirvish-subtree-toggle)
+          ("<tab>" . dirvish-subtree-toggle)))
+
+  ;; Extra font-lock (colored file types/permissions) in Dired buffers.
+  (use-package diredfl
+    :hook (dired-mode . diredfl-mode))
+#+end_src
+
 * Version control
 
 ** Git
@@ -879,7 +1226,12 @@ We setup eat with eshell, if you want to use bash, zsh etc., check out their git
 Complete text-based user interface to Git.
 #+begin_src emacs-lisp
   (use-package magit
-    :commands magit-status)
+    :commands magit-status
+    :custom
+    ;; Open the status buffer full-frame, and restore the previous window
+    ;; layout when you bury it (q).
+    (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
+    (magit-bury-buffer-function #'magit-restore-window-configuration))
 #+end_src
 
 *** Diff-hl
@@ -1138,11 +1490,15 @@ Built-in. Diminish it so it doesn't clutter the modeline.
 #+end_src
 
 * Runtime Performance
-Dial the GC threshold back down so that garbage collection happens more frequently but in less time.
-We also increase Read Process Output Max so emacs can read more data.
-#+begin_src emacs-lisp
-  ;; Make gc pauses faster by decreasing the threshold.
-  (setq gc-cons-threshold (* 2 1000 1000))
-  ;; Increase the amount of data which Emacs reads from the process
-  (setq read-process-output-max (* 1024 1024)) ;; 1mb
+Instead of pinning =gc-cons-threshold= to a fixed value, =gcmh= ("GC Magic Hack")
+raises the threshold while you're actively working and collects garbage when
+Emacs goes idle. This avoids GC pauses mid-keystroke while still keeping memory
+in check. (=read-process-output-max= is set in [[#early-init][early-init.el]].)
+#:+begin_src emacs-lisp
+  (use-package gcmh
+    :diminish gcmh-mode
+    :hook (after-init . gcmh-mode)
+    :custom
+    (gcmh-idle-delay 5)
+    (gcmh-high-cons-threshold (* 16 1024 1024)))
 #+end_src

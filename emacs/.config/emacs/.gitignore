@@ -3,6 +3,7 @@ custom-vars.el
 
 # Tangled output
 init.el
+early-init.el
 
 # Package files
 elpa/
