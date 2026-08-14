@@ -4,8 +4,7 @@
 
 * Table Of Contents                                                     :toc:
 - [[#early-init][Early Init]]
-- [[#core-setup-and-performance][Core setup and performance]]
-  - [[#startup-performance][Startup Performance]]
+- [[#core-setup][Core setup]]
   - [[#auto-tangle-configuration-file][Auto-tangle Configuration file]]
   - [[#show-startup-time][Show startup time]]
   - [[#use-package][Use Package]]
@@ -27,7 +26,7 @@
   - [[#tabs][Tabs]]
 - [[#development][Development]]
   - [[#shell-environment][Shell environment]]
-  - [[#projectile][Projectile]]
+  - [[#project][Project]]
   - [[#eglot][Eglot]]
   - [[#apheleia][Apheleia]]
   - [[#sideline-flymake][Sideline-flymake]]
@@ -126,14 +125,7 @@ Notes:
   (provide 'early-init)
 #+end_src
 
-* Core setup and performance
-** Startup Performance
-Garbage collection is now handled in two places: =early-init.el= maximizes the
-threshold for startup, and [[#runtime-performance][gcmh]] manages it at runtime. Nothing to do here — this
-section is kept as an anchor for the table of contents.
-#+begin_src emacs-lisp
-  ;; GC tuning lives in early-init.el (startup) and the gcmh block (runtime).
-#+end_src
+* Core setup
 
 ** Auto-tangle Configuration file
 Auto-Tangle Org configuration file for better startup times.
@@ -221,7 +213,7 @@ automatically, with no refresh dance.
 
 ** No Littering
 Keeps =~/.config/emacs= tidy by redirecting the state files that packages
-scatter around (recentf, savehist, save-place, projectile caches, url, eln,
+scatter around (recentf, savehist, save-place, project list, url, eln,
 etc.) into two well-known directories. This must load *before* the packages
 that write those files — hence before Good Defaults (which turns on recentf and
 savehist).
@@ -311,7 +303,6 @@ Custom prefixes defined below:
 - C-c g: Git/Version control (magit commands)
 - C-c e: Language/Eglot operations (LSP, diagnostics)
 - C-c t: Toggle operations (line numbers, themes, modes)
-- C-c p: Project operations (projectile-specific commands)
 
 Other global bindings:
 - C-.: embark-act (contextual actions on candidate/target)
@@ -432,27 +423,6 @@ Other global bindings:
       "t" '(consult-theme :wk "Switch theme")
       "f" '(toggle-frame-fullscreen :wk "Fullscreen"))
 
-    ;; C-c p prefix: Project operations
-    ;; Projectile handles project detection and switching; consult provides the
-    ;; preview-rich finders. They're bridged via `consult-project-function' =
-    ;; projectile-project-root, so consult commands honor projectile's projects.
-    (general-create-definer start/project-keys
-      :prefix "C-c p")
-
-    (start/project-keys
-      "" '(:ignore t :wk "Project")
-      "p" '(projectile-switch-project :wk "Switch project")
-      "f" '(consult-project-extra-find :wk "Find file (with preview)")
-      "b" '(consult-project-buffer :wk "Switch buffer (with preview)")
-      "d" '(projectile-find-dir :wk "Find directory")
-      "c" '(projectile-compile-project :wk "Compile")
-      "t" '(projectile-test-project :wk "Run tests")
-      "r" '(projectile-run-project :wk "Run project")
-      "k" '(projectile-kill-buffers :wk "Kill project buffers")
-      "i" '(projectile-invalidate-cache :wk "Invalidate cache")
-      "D" '(projectile-dired :wk "Dired at root")
-      "m" '(ghostel-project :wk "Terminal at root"))
-
     ;; Additional useful global bindings
     (general-define-key
      "C-x b" '(consult-buffer :wk "Switch buffer")  ;; Replace default switch-to-buffer
@@ -471,7 +441,7 @@ Other global bindings:
 ** Set Theme
 Use consult-theme to easily try out themes (*Epilepsy* Warning).
 #+begin_src emacs-lisp
-  (load-theme 'modus-vivendi-tinted t)
+  (load-theme 'doom-vibrant t)
 #+end_src
 
 ** Ultra scroll
@@ -487,7 +457,7 @@ Use consult-theme to easily try out themes (*Epilepsy* Warning).
 ** Transparency
 With Emacs version 29, true transparency has been added.
 #+begin_src emacs-lisp
-  (add-to-list 'default-frame-alist '(alpha-background . 95)) ;; For all new frames henceforth
+  (add-to-list 'default-frame-alist '(alpha-background . 98)) ;; For all new frames henceforth
 #+end_src
 
 ** Fonts
@@ -554,7 +524,7 @@ header line, tab bar, and fringe.
 
 ** Tabs
 =centaur-tabs= shows open buffers as tabs along the top, grouped by project (via
-projectile). Ephemeral buffers (=*Messages*=, minibuffer helpers, etc.) are
+project.el). Ephemeral buffers (=*Messages*=, minibuffer helpers, etc.) are
 filtered out, and popup-ish buffers (dashboard, help) don't get a tab bar.
 Navigate with =C-TAB= / =C-S-TAB=.
 #+begin_src emacs-lisp
@@ -564,7 +534,9 @@ Navigate with =C-TAB= / =C-S-TAB=.
     (centaur-tabs-set-icons t)
     (centaur-tabs-icon-type 'nerd-icons)
     (centaur-tabs-gray-out-icons 'buffer)
-    (centaur-tabs-set-bar 'left)
+    ;; For some reason enabling this below breaks tabs in emacsclient
+    ;; https://github.com/ema2159/centaur-tabs/issues/127#issuecomment-3865209191
+    ;; (centaur-tabs-set-bar 'left)
     (centaur-tabs-set-modified-marker t)
     (centaur-tabs-modified-marker "•")
     (centaur-tabs-close-button "✕")
@@ -580,6 +552,7 @@ Navigate with =C-TAB= / =C-S-TAB=.
               (let ((name (buffer-name b)))
                 (not (or (string-prefix-p " " name)
                          (string-prefix-p "*" name)
+                         (string-prefix-p "PREVIEW ::" name)
                          (string= name ""))))))
        (buffer-list)))
     (setq centaur-tabs-buffer-list-function #'start/tabs-buffer-list)
@@ -588,7 +561,9 @@ Navigate with =C-TAB= / =C-S-TAB=.
                     helpful-mode-hook help-mode-hook))
       (add-hook hook #'centaur-tabs-local-mode))
     (centaur-tabs-mode 1)
-    (centaur-tabs-group-by-projectile-project)
+    ;; Group tabs by project name; the default `centaur-tabs-buffer-groups'
+    ;; derives the name from project.el's `project-current'.
+    (centaur-tabs-group-buffer-groups)
     :bind
     (("C-<tab>"   . centaur-tabs-forward)
      ("C-S-<tab>" . centaur-tabs-backward)
@@ -608,21 +583,40 @@ env and miss things like mise, direnv, and language toolchains.
       (exec-path-from-shell-initialize)))
 #+end_src
 
-** Projectile
-Project interaction library for Emacs.
+** Project
+Built-in project interaction (project.el). Replaces projectile: project
+detection comes from the VCS root (git), file listing from =git ls-files= (no
+cache to invalidate), and consult supplies the preview-rich finders.
 #+begin_src emacs-lisp
-  (use-package projectile
-    :init
-    (projectile-mode)
-    :config
-    (add-hook 'project-find-functions #'project-projectile)
-    ;; Auto-populate the known-projects list from the search path on load.
-    ;; Negligible cost under emacs --daemon since it only runs at server start.
-    (projectile-discover-projects-in-search-path)
+  (use-package project
+    :demand t   ;; Load at startup so the keymap below is bound.
     :custom
-    (projectile-run-use-comint-mode t) ;; Interactive run dialog when running projects inside emacs (like giving input)
-    (projectile-switch-project-action #'projectile-find-file) ;; Drop into find-file on project switch
-    (projectile-project-search-path '(("~/dev" . 2)))) ;; Search up to 2 subdirectory levels deep for projects
+    ;; On selecting a project, drop straight into the consult file finder
+    ;; (mirrors the old projectile-find-file switch action, but with preview).
+    (project-switch-commands #'consult-project-extra-find)
+    :config
+    ;; Reuse project.el's own `project-prefix-map' (the full native C-x p menu:
+    ;; find-regexp, query-replace, shell, eshell, vc-dir, ...) rather than
+    ;; hand-maintaining a parallel list. Just swap in the consult finders for
+    ;; f/b and add a terminal on m; everything else stays on the native C-x p.
+    (keymap-set project-prefix-map "f" #'consult-project-extra-find)
+    (keymap-set project-prefix-map "b" #'consult-project-buffer)
+    (keymap-set project-prefix-map "m" #'ghostel-project)
+    ;; Auto-populate project.el's known-projects list from ~/dev, up to two
+    ;; directory levels deep -- the replacement for
+    ;; projectile-discover-projects-in-search-path. Remembering a directory
+    ;; scans its immediate children for projects, so we call it on ~/dev (depth
+    ;; 1) and on each of its subdirectories (depth 2). Runs once at startup;
+    ;; negligible cost under emacs --daemon since it only runs at server start.
+    (defun start/remember-projects ()
+      "Discover git projects under ~/dev (one and two levels deep)."
+      (let ((root (expand-file-name "~/dev")))
+        (when (file-directory-p root)
+          (project-remember-projects-under root)
+          (dolist (dir (directory-files root t "\\`[^.]"))
+            (when (file-directory-p dir)
+              (project-remember-projects-under dir))))))
+    (start/remember-projects))
 #+end_src
 
 ** Eglot
@@ -1058,8 +1052,10 @@ avoid our =use-package-always-ensure= trying to install them.
            ("M-p" . (lambda () (interactive) (ghostel-send-key "p" "ctrl")))
            ("M-n" . (lambda () (interactive) (ghostel-send-key "n" "ctrl"))))
     :config
-    ;; Offer a terminal when switching projects via project.el's dispatcher.
-    (add-to-list 'project-switch-commands '(ghostel-project "Ghostel") t)
+    ;; A terminal at project root is available on `C-x p m'. We don't add it to
+    ;; `project-switch-commands' because that's set to a single command
+    ;; (`consult-project-extra-find') so switching a project jumps straight into
+    ;; the file finder -- there's no dispatch menu to append to.
     ;; Let the terminal call back into Emacs (e.g. open magit from the shell).
     (add-to-list 'ghostel-eval-cmds
                  '("magit-status-setup-buffer" magit-status-setup-buffer)))
@@ -1352,9 +1348,8 @@ Check out their [[https://github.com/minad/consult][git repository]] for more aw
     (setq consult-find-args "find . -not ( -path '*/.git/*' -prune )")
     (setq consult-fd-args "fd --hidden --exclude .git --full-path --color=never")
     :config
-    ;; Use projectile's project root instead of project.el's
-    (autoload 'projectile-project-root "projectile")
-    (setq consult-project-function (lambda (_) (projectile-project-root)))
+    ;; Project root comes from project.el (`consult-project-function' defaults
+    ;; to `project-current'); no override needed now that projectile is gone.
     ;; Enable live preview for the find commands (some default to manual M-.)
     (with-eval-after-load 'consult-project-extra
       (consult-customize
@@ -1403,7 +1398,7 @@ Use =C-c C-p= to enter wgrep mode from a =consult-ripgrep= result, =C-c C-c= to 
 #+end_src
 
 ** Treemacs
-Treemacs integration alongside projectile and dired
+Treemacs integration alongside project.el and dired
 #+begin_src emacs-lisp
   (use-package treemacs
     :defer t
@@ -1432,9 +1427,6 @@ Treemacs integration alongside projectile and dired
     :after (treemacs nerd-icons)
     :config
     (treemacs-load-theme "nerd-icons"))
-
-  (use-package treemacs-projectile
-    :after (treemacs projectile))
 
   (use-package treemacs-icons-dired
     :hook (dired-mode . treemacs-icons-dired-enable-once))
