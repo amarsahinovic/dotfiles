@@ -66,6 +66,10 @@
   (recentf-mode t)            ;; Enable recent file mode (needed by consult-recent-file)
   (save-place-mode t)         ;; Reopen files at the cursor position you left them at
 
+  (winner-mode t)             ;; Undo/redo window layouts with C-c left / C-c right
+  (repeat-mode t)             ;; Repeat command chords by the last key (e.g. C-x o o o)
+  (global-so-long-mode t)     ;; Stay responsive in files with very long lines (minified, etc.)
+
   (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
   (global-display-line-numbers-mode t)    ;; Display line numbers (absolute by default)
   (column-number-mode t)                  ;; Display column in mode line
@@ -245,8 +249,8 @@
 
 (use-package nerd-icons)
 
-(use-package nerd-icons-dired
-  :hook (dired-mode . (lambda () (nerd-icons-dired-mode t))))
+;; nerd-icons in Dired come from dirvish's `nerd-icons' attribute, so no
+;; separate nerd-icons-dired is needed.
 
 (use-package nerd-icons-ibuffer
   :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
@@ -826,40 +830,6 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
   (speedbar-window-max-width 25)      ;; ...and cap so it doesn't fight other windows
   (speedbar-show-unknown-files t)     ;; Show all files, not just "supported" ones
   :bind ("C-x t s" . speedbar-window))
-
-(use-package treemacs
-  :defer t
-  :config
-  (treemacs-follow-mode t)
-  (treemacs-project-follow-mode t)
-  (treemacs-filewatch-mode t)
-  (treemacs-fringe-indicator-mode 'always)
-  (when treemacs-python-executable
-    (treemacs-git-commit-diff-mode t))
-  (pcase (cons (not (null (executable-find "git")))
-               (not (null treemacs-python-executable)))
-    (`(t . t) (treemacs-git-mode 'deferred))
-    (`(t . _) (treemacs-git-mode 'simple)))
-  :bind
-  (:map global-map
-        ("M-0"       . treemacs-select-window)
-        ("C-x t 1"   . treemacs-delete-other-windows)
-        ("C-x t t"   . treemacs)
-        ("C-x t d"   . treemacs-select-directory)
-        ("C-x t B"   . treemacs-bookmark)
-        ("C-x t C-t" . treemacs-find-file)
-        ("C-x t M-t" . treemacs-find-tag)))
-
-(use-package treemacs-nerd-icons
-  :after (treemacs nerd-icons)
-  :config
-  (treemacs-load-theme "nerd-icons"))
-
-(use-package treemacs-icons-dired
-  :hook (dired-mode . treemacs-icons-dired-enable-once))
-
-(use-package treemacs-magit
-  :after (treemacs magit))
 
 (use-package diminish)
 
