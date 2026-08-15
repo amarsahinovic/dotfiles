@@ -4,6 +4,7 @@
   "Automatically tangle our init.org config file when we save it."
   (interactive)
   (when (and (buffer-file-name)  ;; This handles nil buffer-file-name
+             (derived-mode-p 'org-mode) ;; Only tangle org buffers
              ;; Use file-truename to handle simlinks (eg. when using GNU stow)
              ;; Use equal instead of string-equal as file-truename returns list-like structure
              (equal (file-truename (file-name-directory (buffer-file-name)))
@@ -13,7 +14,10 @@
           (byte-compile-warnings nil))        ;; Disable byte-compile warnings
       (org-babel-tangle))))
 
-(add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config)))
+;; :local is important -- without it the save hook becomes global and fires
+;; on every save of every buffer once any org file has been opened.
+(add-hook 'org-mode-hook
+          (lambda () (add-hook 'after-save-hook #'start/org-babel-tangle-config nil :local)))
 
 (defun start/display-startup-time ()
   (message "Emacs loaded in %s with %d garbage collections."
@@ -27,12 +31,10 @@
 (require 'use-package-ensure) ;; Load use-package-always-ensure
 (setq use-package-always-ensure t) ;; Always ensures that a package is installed
 
+;; Note: Org ELPA (orgmode.org/elpa) was retired in 2022 -- org ships from GNU ELPA.
 (setq package-archives '(("melpa" . "https://melpa.org/packages/") ;; Sets default package repositories
-                         ("org" . "https://orgmode.org/elpa/")
                          ("elpa" . "https://elpa.gnu.org/packages/")
                          ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
-
-(setq package-quickstart nil)
 
 (use-package no-littering
   :demand t
@@ -71,12 +73,17 @@
   (global-so-long-mode t)     ;; Stay responsive in files with very long lines (minified, etc.)
 
   (display-line-numbers-width 4)          ;; Fixed width for line numbers (prevents horizontal shift)
-  (global-display-line-numbers-mode t)    ;; Display line numbers (absolute by default)
+  ;; Line numbers via prog/conf hooks below (not globally) so terminals,
+  ;; org, dired, help buffers etc. stay clean.
   (column-number-mode t)                  ;; Display column in mode line
 
   (mouse-wheel-progressive-speed nil)     ;; Disable progressive speed when scrolling
 
   (use-short-answers t)       ;; Use short answers (y instead of yes)
+
+  ;; This config is GNU-stowed symlinks into a git repo -- without this Emacs
+  ;; asks "Symbolic link to Git-controlled source file; follow link?" constantly.
+  (vc-follow-symlinks t)
 
   ;; Emacs 31 quality-of-life
   (kill-region-dwim 'emacs-word)   ;; C-w with no region kills the word before point
@@ -90,6 +97,8 @@
   (auto-save-default nil)     ;; Stop creating # auto save files
   :hook
   (prog-mode . hs-minor-mode) ;; Enable folding hide/show globally
+  (prog-mode . display-line-numbers-mode) ;; Line numbers where they matter...
+  (conf-mode . display-line-numbers-mode) ;; ...including config-file modes
   :config
   ;; Move customization variables to a separate file so init.el stays clean.
   (setq custom-file (locate-user-emacs-file "custom-vars.el"))
