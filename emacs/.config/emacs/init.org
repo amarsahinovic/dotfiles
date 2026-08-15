@@ -5,6 +5,7 @@
 * Table Of Contents                                                     :toc:
 - [[#early-init][Early Init]]
 - [[#core-setup][Core setup]]
+  - [[#lexical-binding][Lexical binding]]
   - [[#auto-tangle-configuration-file][Auto-tangle Configuration file]]
   - [[#show-startup-time][Show startup time]]
   - [[#use-package][Use Package]]
@@ -55,6 +56,7 @@
   - [[#embark][Embark]]
   - [[#wgrep][Wgrep]]
   - [[#helpful][Helpful]]
+  - [[#speedbar][Speedbar]]
   - [[#treemacs][Treemacs]]
   - [[#diminish][Diminish]]
   - [[#rainbow-delimiters][Rainbow Delimiters]]
@@ -113,7 +115,9 @@ Notes:
         inhibit-compacting-font-caches t)
 
   ;; Native-comp: compile asynchronously, don't nag about warnings.
-  (setq native-comp-async-report-warnings-errors 'silent)
+  ;; Emacs 31: pause async native-comp jobs while on battery (no-op on desktop).
+  (setq native-comp-async-report-warnings-errors 'silent
+        native-comp-async-on-battery-power nil)
 
   ;; package.el stays enabled (this config uses it). We disable
   ;; `package-quickstart' HERE — it must be set before `package-activate-all'
@@ -126,6 +130,16 @@ Notes:
 #+end_src
 
 * Core setup
+
+** Lexical binding
+Emacs 31 warns about every elisp file that lacks a =lexical-binding= cookie
+(dynamic binding is on its way out). Emacs only looks for the cookie on the
+*first line* of the file, so this block must stay the first one tangled into
+=init.el=. (=early-init.el= already carries its cookie in its own header, and
+=custom-vars.el= got one added by hand — Custom preserves it when rewriting.)
+#+begin_src emacs-lisp
+  ;;; init.el --- Tangled from init.org -*- lexical-binding: t; -*-
+#+end_src
 
 ** Auto-tangle Configuration file
 Auto-Tangle Org configuration file for better startup times.
@@ -265,6 +279,11 @@ savehist).
 
     (use-short-answers t)       ;; Use short answers (y instead of yes)
 
+    ;; Emacs 31 quality-of-life
+    (kill-region-dwim 'emacs-word)   ;; C-w with no region kills the word before point
+    (delete-pair-push-mark t)        ;; delete-pair marks what was inside, so C-x C-x selects it
+    (ibuffer-human-readable-size t)  ;; KB/MB in ibuffer instead of raw byte counts
+
     (indent-tabs-mode nil)
     (tab-width 2)
 
@@ -295,6 +314,13 @@ Standard Emacs prefixes:
 - C-h: Help system (built-in)
 - M-s: Search operations (built-in)
 - C-x p: Project commands (built-in, enhanced with consult-project-extra)
+- C-x w: Window commands (built-in). New in Emacs 31: =C-x w t= transpose
+  layout, =C-x w r= rotate layout clockwise, =C-x w f h= / =C-x w f v= flip
+  layout left-right / top-bottom — rearrange windows while keeping buffers in place.
+
+New in Emacs 31 (no binding needed): xref buffers are editable — after e.g.
+=C-x p g= (project grep via xref), press =e= to edit results inline across
+files and =C-c C-c= to apply (like wgrep, but built-in).
 
 Custom prefixes defined below:
 - C-c f: Find operations (files, projects, recent files)
@@ -643,10 +669,13 @@ If you can use a package manager just install the lsp server and add a hook.
       elixir-ts-mode heex-ts-mode
       typescript-ts-mode tsx-ts-mode js-ts-mode) . eglot-ensure)
     :custom
-    (eglot-events-buffer-size 0)
+    (eglot-events-buffer-config '(:size 0)) ;; Replaces obsolete eglot-events-buffer-size
     (eglot-autoshutdown t)
     (eglot-sync-connect 0)
     (eglot-extend-to-xref t)
+    ;; Emacs 31: inline "code action available" hints (eldoc-hint/fringe/margin).
+    ;; Some servers make them noisy; keep just the eldoc hint.
+    (eglot-code-action-indications '(eldoc-hint))
     :config
     ;; Prefer pyright over pylsp/jedi for Python.
     (add-to-list 'eglot-server-programs
@@ -784,82 +813,34 @@ Eglot and other tools pick up the right Python/executables automatically.
 
 
 ** Treesitter
+Emacs 31 makes tree-sitter essentially zero-config, replacing what used to be
+~60 lines here (a hand-maintained =treesit-language-source-alist=, an installer
+helper, mode remappings, and =auto-mode-alist= entries for go/rust/cmake/tsx):
+
+- =treesit-enabled-modes t= prefers every built-in tree-sitter mode (python,
+  elixir, heex, typescript, go, rust, yaml, bash, ...). It *must* be set via
+  =:custom= / =setopt= — its custom setter is what populates
+  =major-mode-remap-alist=; a plain =setq= would do nothing.
+- =treesit-auto-install-grammar 'always= downloads and builds a missing grammar
+  automatically on first visit. The grammar recipes now live inside the modes
+  themselves, so no source alist is needed.
+
+Caveat: auto-installed grammars are plain =.so= files not segregated by
+architecture — don't share the =tree-sitter/= directory across machines of
+different architectures.
 #+begin_src emacs-lisp
-  (setq treesit-language-source-alist
-        '((bash "https://github.com/tree-sitter/tree-sitter-bash")
-          (cmake "https://github.com/uyha/tree-sitter-cmake")
-          (c "https://github.com/tree-sitter/tree-sitter-c")
-          (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
-          (css "https://github.com/tree-sitter/tree-sitter-css")
-          (elisp "https://github.com/Wilfred/tree-sitter-elisp")
-          (go "https://github.com/tree-sitter/tree-sitter-go")
-          (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
-          (html "https://github.com/tree-sitter/tree-sitter-html")
-          (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
-          (json "https://github.com/tree-sitter/tree-sitter-json")
-          (lua "https://github.com/tjdevries/tree-sitter-lua")
-          (make "https://github.com/alemuller/tree-sitter-make")
-          (markdown "https://github.com/ikatyang/tree-sitter-markdown")
-          (python "https://github.com/tree-sitter/tree-sitter-python")
-          (rust "https://github.com/tree-sitter/tree-sitter-rust")
-          (toml "https://github.com/tree-sitter/tree-sitter-toml")
-          (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
-          (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
-          (yaml "https://github.com/ikatyang/tree-sitter-yaml")
-          (heex "https://github.com/phoenixframework/tree-sitter-heex")
-          (elixir "https://github.com/elixir-lang/tree-sitter-elixir")))
-
-  (defun start/install-treesit-grammars ()
-    "Install missing treesitter grammars"
-    (interactive)
-    (dolist (grammar treesit-language-source-alist)
-      (let ((lang (car grammar)))
-        (unless (treesit-language-available-p lang)
-          (treesit-install-language-grammar lang)))))
-
-  ;; Call this function to install missing grammars
-  ;; (start/install-treesit-grammars)
-
-  ;; Additional mode remappings not covered by defaults. Use add-to-list so we
-  ;; don't clobber entries set elsewhere (Emacs or other packages).
-  (dolist (remap '((yaml-mode . yaml-ts-mode)
-                   (sh-mode . bash-ts-mode)
-                   (c-mode . c-ts-mode)
-                   (c++-mode . c++-ts-mode)
-                   (css-mode . css-ts-mode)
-                   (python-mode . python-ts-mode)
-                   (mhtml-mode . html-ts-mode)
-                   (javascript-mode . js-ts-mode)
-                   (json-mode . json-ts-mode)
-                   (lua-mode . lua-ts-mode)
-                   (typescript-mode . typescript-ts-mode)
-                   (conf-toml-mode . toml-ts-mode)
-                   (elixir-mode . elixir-ts-mode)))
-    (add-to-list 'major-mode-remap-alist remap))
-
-  ;; Or if there is no built in mode
-  (use-package cmake-ts-mode :ensure nil :mode ("CMakeLists\\.txt\\'" "\\.cmake\\'"))
-  (use-package go-ts-mode :ensure nil :mode "\\.go\\'")
-  (use-package go-mod-ts-mode :ensure nil :mode "\\.mod\\'")
-  (use-package rust-ts-mode :ensure nil :mode "\\.rs\\'")
-  (use-package tsx-ts-mode :ensure nil :mode "\\.tsx\\'")
+  ;; setopt (not setq) so the custom setter of treesit-enabled-modes runs.
+  (setopt treesit-auto-install-grammar 'always ;; Fetch and build missing grammars automatically
+          treesit-enabled-modes t)             ;; Prefer every built-in *-ts-mode
 #+end_src
 
 
 ** Language modes
-It's not required for every language like C,C++,C#,Java,Javascript etc. to install language mode packages,
-but for more specific languages it is necessary for syntax highlighting.
-If you want to use TreeSitter, check out this [[https://www.masteringemacs.org/article/how-to-get-started-tree-sitter][website]] or try out [[https://github.com/renzmann/treesit-auto][Treesit-auto]].
-Currently it's tedious to use Treesitter, because emacs has not yet fully migrated to it.
-
-*** Lua mode
-Use the built-in tree-sitter mode (Emacs 30+). Needs the =lua= grammar, which
-is installed by =start/install-treesit-grammars=.
-#+begin_src emacs-lisp
-  (use-package lua-ts-mode
-    :ensure nil
-    :mode "\\.lua\\'") ;; Only start in a lua file
-#+end_src
+With Emacs 31's =treesit-enabled-modes t= (see [[#treesitter][Treesitter]]) most languages need
+no per-language setup at all — the built-in tree-sitter modes (including lua,
+elixir, heex, go, rust, ...) claim their file extensions and grammars
+auto-install. Only modes that aren't shipped with Emacs, or that need extra
+configuration, appear below.
 
 *** Org Mode
 Org mode is one of the things that emacs is loved for.
@@ -878,7 +859,12 @@ much like the literate programming ideas that Donald Knuth made famous.
 #+end_src
 
 *** Markdown mode
-
+Emacs 31 ships an experimental built-in =markdown-ts-mode= (Org-like folding
+and navigation, real font-locking inside fenced code blocks, inline images).
+It isn't wired to =auto-mode-alist= yet and completion inside code blocks is
+rough, so we stay on =markdown-mode= for now — try it with
+=M-x load-library RET markdown-ts-mode= then =M-x markdown-ts-mode= in a
+buffer, and revisit when Emacs 31 final lands.
 #+begin_src emacs-lisp
   (use-package markdown-mode
     :mode (("\\.md\\'"  . gfm-mode)
@@ -891,21 +877,21 @@ much like the literate programming ideas that Donald Knuth made famous.
 #+end_src
 
 *** Elixir mode
-Setup Elixir mode using elixir-ts-mode and treesiter grammar
+=elixir-ts-mode= and =heex-ts-mode= are built into Emacs 31 and enabled by
+=treesit-enabled-modes= — no package or mode setup needed. This hook only adds
+prettify-symbols.
 #+begin_src emacs-lisp
-  (use-package elixir-ts-mode
-    :hook
-    (elixir-ts-mode . (lambda ()
-                        (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
-                        (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
-                        (push '("!=" . ?\u2260) prettify-symbols-alist)  ;; ≠
-                        (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ≝
-                        (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≈
-                        (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
-                        (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
-                        (push '("|>" . ?\u25B7) prettify-symbols-alist)  ;; ▷
-                        (prettify-symbols-mode 1))))
-
+  (add-hook 'elixir-ts-mode-hook
+            (lambda ()
+              (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
+              (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
+              (push '("!=" . ?\u2260) prettify-symbols-alist)  ;; ≠
+              (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ≝
+              (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≈
+              (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
+              (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
+              (push '("|>" . ?\u25B7) prettify-symbols-alist)  ;; ▷
+              (prettify-symbols-mode 1)))
 #+end_src
 
 **** Table of Contents
@@ -1025,6 +1011,12 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
   (use-package agent-shell
     :vc (:url "https://github.com/xenodium/agent-shell")
     :defer t)
+
+  ;; Sidebar layout for agent-shell. Was only recorded in custom-vars.el
+  ;; (via a manual package-vc-install); declared here so a fresh machine gets it.
+  (use-package agent-shell-sidebar
+    :vc (:url "https://github.com/cmacrae/agent-shell-sidebar")
+    :defer t)
 #+end_src
 
 ** Terminal
@@ -1120,7 +1112,8 @@ Add a language by extending =start/test-runner-alist= (and, for =:test-at-point=
       (when fn (funcall fn))))
 
   (defun start/test--project-root ()
-    (if-let ((proj (project-current))) (project-root proj) default-directory))
+    ;; if-let is obsolete since Emacs 31; if-let* is the same thing.
+    (if-let* ((proj (project-current))) (project-root proj) default-directory))
 
   (defun start/test--resolve-cmd (cmd)
     (let* ((file  (or (buffer-file-name) ""))
@@ -1397,6 +1390,22 @@ Use =C-c C-p= to enter wgrep mode from a =consult-ripgrep= result, =C-c C-c= to 
            ("C-h x" . helpful-command)))
 #+end_src
 
+** Speedbar
+Built-in file/tag tree. New in Emacs 31: =speedbar-window= docks it in a side
+window like a modern file tree, instead of the old separate floating frame.
+Trying it out as a potential replacement for [[#treemacs][Treemacs]] — if it sticks, the
+Treemacs section below (and its four packages) can go.
+- =C-x t s= opens the docked speedbar (=q= inside it to close).
+#+begin_src emacs-lisp
+  (use-package speedbar
+    :ensure nil
+    :custom
+    (speedbar-window-default-width 25)  ;; Emacs 31: side-window width...
+    (speedbar-window-max-width 25)      ;; ...and cap so it doesn't fight other windows
+    (speedbar-show-unknown-files t)     ;; Show all files, not just "supported" ones
+    :bind ("C-x t s" . speedbar-window))
+#+end_src
+
 ** Treemacs
 Treemacs integration alongside project.el and dired
 #+begin_src emacs-lisp
@@ -1451,8 +1460,10 @@ Adds colors to brackets.
 
 ** Which-Key
 Which-key is a helper utility for keychords (which key to press).
+Built into Emacs since version 30, so =:ensure nil=.
 #+begin_src emacs-lisp
   (use-package which-key
+    :ensure nil
     :init
     (which-key-mode 1)
     :diminish
@@ -1476,10 +1487,17 @@ Which-key is a helper utility for keychords (which key to press).
 
 ** Eldoc
 Built-in. Diminish it so it doesn't clutter the modeline.
+
+=eldoc-help-at-pt= (Emacs 31) makes eldoc also surface =help-at-pt= text for
+whatever is under the cursor — e.g. flymake diagnostics show up automatically
+(in the eldoc-box child frame in Eglot buffers) without hovering the mouse or
+invoking anything.
 #+begin_src emacs-lisp
   (use-package eldoc
     :ensure nil
-    :diminish)
+    :diminish
+    :custom
+    (eldoc-help-at-pt t)) ;; Emacs 31: show help-at-point (flymake etc.) via eldoc
 #+end_src
 
 * Runtime Performance

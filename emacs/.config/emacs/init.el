@@ -1,3 +1,5 @@
+;;; init.el --- Tangled from init.org -*- lexical-binding: t; -*-
+
 (defun start/org-babel-tangle-config ()
   "Automatically tangle our init.org config file when we save it."
   (interactive)
@@ -71,6 +73,11 @@
   (mouse-wheel-progressive-speed nil)     ;; Disable progressive speed when scrolling
 
   (use-short-answers t)       ;; Use short answers (y instead of yes)
+
+  ;; Emacs 31 quality-of-life
+  (kill-region-dwim 'emacs-word)   ;; C-w with no region kills the word before point
+  (delete-pair-push-mark t)        ;; delete-pair marks what was inside, so C-x C-x selects it
+  (ibuffer-human-readable-size t)  ;; KB/MB in ibuffer instead of raw byte counts
 
   (indent-tabs-mode nil)
   (tab-width 2)
@@ -335,10 +342,13 @@
     elixir-ts-mode heex-ts-mode
     typescript-ts-mode tsx-ts-mode js-ts-mode) . eglot-ensure)
   :custom
-  (eglot-events-buffer-size 0)
+  (eglot-events-buffer-config '(:size 0)) ;; Replaces obsolete eglot-events-buffer-size
   (eglot-autoshutdown t)
   (eglot-sync-connect 0)
   (eglot-extend-to-xref t)
+  ;; Emacs 31: inline "code action available" hints (eldoc-hint/fringe/margin).
+  ;; Some servers make them noisy; keep just the eldoc hint.
+  (eglot-code-action-indications '(eldoc-hint))
   :config
   ;; Prefer pyright over pylsp/jedi for Python.
   (add-to-list 'eglot-server-programs
@@ -419,68 +429,9 @@
   :diminish envrc-mode
   :hook (after-init . envrc-global-mode))
 
-(setq treesit-language-source-alist
-      '((bash "https://github.com/tree-sitter/tree-sitter-bash")
-        (cmake "https://github.com/uyha/tree-sitter-cmake")
-        (c "https://github.com/tree-sitter/tree-sitter-c")
-        (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
-        (css "https://github.com/tree-sitter/tree-sitter-css")
-        (elisp "https://github.com/Wilfred/tree-sitter-elisp")
-        (go "https://github.com/tree-sitter/tree-sitter-go")
-        (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
-        (html "https://github.com/tree-sitter/tree-sitter-html")
-        (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
-        (json "https://github.com/tree-sitter/tree-sitter-json")
-        (lua "https://github.com/tjdevries/tree-sitter-lua")
-        (make "https://github.com/alemuller/tree-sitter-make")
-        (markdown "https://github.com/ikatyang/tree-sitter-markdown")
-        (python "https://github.com/tree-sitter/tree-sitter-python")
-        (rust "https://github.com/tree-sitter/tree-sitter-rust")
-        (toml "https://github.com/tree-sitter/tree-sitter-toml")
-        (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
-        (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
-        (yaml "https://github.com/ikatyang/tree-sitter-yaml")
-        (heex "https://github.com/phoenixframework/tree-sitter-heex")
-        (elixir "https://github.com/elixir-lang/tree-sitter-elixir")))
-
-(defun start/install-treesit-grammars ()
-  "Install missing treesitter grammars"
-  (interactive)
-  (dolist (grammar treesit-language-source-alist)
-    (let ((lang (car grammar)))
-      (unless (treesit-language-available-p lang)
-        (treesit-install-language-grammar lang)))))
-
-;; Call this function to install missing grammars
-;; (start/install-treesit-grammars)
-
-;; Additional mode remappings not covered by defaults. Use add-to-list so we
-;; don't clobber entries set elsewhere (Emacs or other packages).
-(dolist (remap '((yaml-mode . yaml-ts-mode)
-                 (sh-mode . bash-ts-mode)
-                 (c-mode . c-ts-mode)
-                 (c++-mode . c++-ts-mode)
-                 (css-mode . css-ts-mode)
-                 (python-mode . python-ts-mode)
-                 (mhtml-mode . html-ts-mode)
-                 (javascript-mode . js-ts-mode)
-                 (json-mode . json-ts-mode)
-                 (lua-mode . lua-ts-mode)
-                 (typescript-mode . typescript-ts-mode)
-                 (conf-toml-mode . toml-ts-mode)
-                 (elixir-mode . elixir-ts-mode)))
-  (add-to-list 'major-mode-remap-alist remap))
-
-;; Or if there is no built in mode
-(use-package cmake-ts-mode :ensure nil :mode ("CMakeLists\\.txt\\'" "\\.cmake\\'"))
-(use-package go-ts-mode :ensure nil :mode "\\.go\\'")
-(use-package go-mod-ts-mode :ensure nil :mode "\\.mod\\'")
-(use-package rust-ts-mode :ensure nil :mode "\\.rs\\'")
-(use-package tsx-ts-mode :ensure nil :mode "\\.tsx\\'")
-
-(use-package lua-ts-mode
-  :ensure nil
-  :mode "\\.lua\\'") ;; Only start in a lua file
+;; setopt (not setq) so the custom setter of treesit-enabled-modes runs.
+(setopt treesit-auto-install-grammar 'always ;; Fetch and build missing grammars automatically
+        treesit-enabled-modes t)             ;; Prefer every built-in *-ts-mode
 
 (use-package org
   :ensure nil
@@ -500,18 +451,17 @@
   (markdown-header-scaling t)
   (markdown-italic-underscore t))
 
-(use-package elixir-ts-mode
-  :hook
-  (elixir-ts-mode . (lambda ()
-                      (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
-                      (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
-                      (push '("!=" . ?\u2260) prettify-symbols-alist)  ;; ≠
-                      (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ≝
-                      (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≈
-                      (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
-                      (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
-                      (push '("|>" . ?\u25B7) prettify-symbols-alist)  ;; ▷
-                      (prettify-symbols-mode 1))))
+(add-hook 'elixir-ts-mode-hook
+          (lambda ()
+            (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
+            (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
+            (push '("!=" . ?\u2260) prettify-symbols-alist)  ;; ≠
+            (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ≝
+            (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≈
+            (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
+            (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
+            (push '("|>" . ?\u25B7) prettify-symbols-alist)  ;; ▷
+            (prettify-symbols-mode 1)))
 
 (use-package toc-org
   :commands toc-org-enable
@@ -600,6 +550,12 @@ Returns nil if no matching entry is found."
   :vc (:url "https://github.com/xenodium/agent-shell")
   :defer t)
 
+;; Sidebar layout for agent-shell. Was only recorded in custom-vars.el
+;; (via a manual package-vc-install); declared here so a fresh machine gets it.
+(use-package agent-shell-sidebar
+  :vc (:url "https://github.com/cmacrae/agent-shell-sidebar")
+  :defer t)
+
 (use-package ghostel
   :bind (("C-x m" . ghostel)                 ;; Open a terminal
          :map ghostel-semi-char-mode-map
@@ -665,7 +621,8 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
     (when fn (funcall fn))))
 
 (defun start/test--project-root ()
-  (if-let ((proj (project-current))) (project-root proj) default-directory))
+  ;; if-let is obsolete since Emacs 31; if-let* is the same thing.
+  (if-let* ((proj (project-current))) (project-root proj) default-directory))
 
 (defun start/test--resolve-cmd (cmd)
   (let* ((file  (or (buffer-file-name) ""))
@@ -862,6 +819,14 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
          ("C-h k" . helpful-key)
          ("C-h x" . helpful-command)))
 
+(use-package speedbar
+  :ensure nil
+  :custom
+  (speedbar-window-default-width 25)  ;; Emacs 31: side-window width...
+  (speedbar-window-max-width 25)      ;; ...and cap so it doesn't fight other windows
+  (speedbar-show-unknown-files t)     ;; Show all files, not just "supported" ones
+  :bind ("C-x t s" . speedbar-window))
+
 (use-package treemacs
   :defer t
   :config
@@ -902,6 +867,7 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
   :hook (prog-mode . rainbow-delimiters-mode))
 
 (use-package which-key
+  :ensure nil
   :init
   (which-key-mode 1)
   :diminish
@@ -921,7 +887,9 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
 
 (use-package eldoc
   :ensure nil
-  :diminish)
+  :diminish
+  :custom
+  (eldoc-help-at-pt t)) ;; Emacs 31: show help-at-point (flymake etc.) via eldoc
 
 (use-package gcmh
   :diminish gcmh-mode
