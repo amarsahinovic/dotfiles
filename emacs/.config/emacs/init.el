@@ -35,6 +35,9 @@
 (setq package-archives '(("melpa" . "https://melpa.org/packages/") ;; Sets default package repositories
                          ("elpa" . "https://elpa.gnu.org/packages/")
                          ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
+;; Prefer stable GNU/nonGNU releases over MELPA snapshots when a package is
+;; on both; MELPA remains the fallback for everything else.
+(setq package-archive-priorities '(("elpa" . 3) ("nongnu" . 2) ("melpa" . 1)))
 
 (use-package no-littering
   :demand t
@@ -42,9 +45,10 @@
   (setq no-littering-etc-directory (expand-file-name "etc/" user-emacs-directory)
         no-littering-var-directory "~/.local/share/emacs/")
   :config
-  ;; Keep auto-save files (if ever re-enabled) out of the way too.
-  (setq auto-save-file-name-transforms
-        `((".*" ,(no-littering-expand-var-file-name "auto-save/") t)))
+  ;; Route backups and auto-save files into var/backup/ and var/auto-save/
+  ;; (and skip them for /tmp and TRAMP files, which could leak secrets).
+  ;; Backups themselves are enabled in Good Defaults.
+  (no-littering-theme-backups)
   ;; Don't clutter recentf with our own state files.
   (with-eval-after-load 'recentf
     (add-to-list 'recentf-exclude
@@ -67,6 +71,7 @@
 
   (recentf-mode t)            ;; Enable recent file mode (needed by consult-recent-file)
   (save-place-mode t)         ;; Reopen files at the cursor position you left them at
+  (savehist-mode t)           ;; Persist minibuffer history (vertico ordering) across sessions
 
   (winner-mode t)             ;; Undo/redo window layouts with C-c left / C-c right
   (repeat-mode t)             ;; Repeat command chords by the last key (e.g. C-x o o o)
@@ -93,17 +98,37 @@
   (indent-tabs-mode nil)
   (tab-width 2)
 
-  (make-backup-files nil)     ;; Stop creating ~ backup files
-  (auto-save-default nil)     ;; Stop creating # auto save files
+  ;; Backups and auto-save as cheap data-loss insurance. no-littering routes
+  ;; both into ~/.local/share/emacs/ (backup/ and auto-save/), so nothing
+  ;; lands next to the real files.
+  (make-backup-files t)
+  (backup-by-copying t)       ;; Don't break symlinks/hardlinks (stowed files!)
+  (version-control t)         ;; Numbered backups...
+  (delete-old-versions t)     ;; ...pruned automatically
+  (kept-new-versions 6)
+  (kept-old-versions 2)
+  (auto-save-default t)       ;; Periodic #file# snapshots between saves
   :hook
   (prog-mode . hs-minor-mode) ;; Enable folding hide/show globally
   (prog-mode . display-line-numbers-mode) ;; Line numbers where they matter...
   (conf-mode . display-line-numbers-mode) ;; ...including config-file modes
+  :init
+  ;; `keyboard-escape-quit' also runs `delete-other-windows' when there are
+  ;; multiple windows -- a stray ESC nukes the window layout. This is the
+  ;; same command minus that branch (and the buried-buffer one).
+  (defun start/escape-quit ()
+    "Quit the minibuffer, a prefix arg, or an active region -- nothing else."
+    (interactive)
+    (cond ((region-active-p) (deactivate-mark))
+          ((> (minibuffer-depth) 0) (abort-recursive-edit))
+          (current-prefix-arg nil)
+          ((> (recursion-depth) 0) (exit-recursive-edit))
+          (buffer-quit-function (funcall buffer-quit-function))))
   :config
   ;; Move customization variables to a separate file so init.el stays clean.
   (setq custom-file (locate-user-emacs-file "custom-vars.el"))
   (load custom-file 'noerror 'nomessage)
-  :bind (([escape] . keyboard-escape-quit) ;; Escape quits prompts (minibuffer escape)
+  :bind (([escape] . start/escape-quit) ;; Escape quits prompts without touching windows
          ;; C-+ / C-- (or Ctrl + mouse wheel) for zoom in/out.
          ("C-+" . text-scale-increase)
          ("C--" . text-scale-decrease)
@@ -288,21 +313,22 @@
   (centaur-tabs-style "bar")
   (centaur-tabs-height 32)
   :config
-  ;; Only show "real" buffers as tabs (skip * and space-prefixed buffers).
+  ;; Only show "real" buffers as tabs (skip * and space-prefixed buffers),
+  ;; but keep ghostel terminals (*ghostel...*) -- they're working buffers.
   (defun start/tabs-buffer-list ()
     (seq-filter
      (lambda (b)
        (and (buffer-live-p b)
             (let ((name (buffer-name b)))
               (not (or (string-prefix-p " " name)
-                       (string-prefix-p "*" name)
+                       (and (string-prefix-p "*" name)
+                            (not (string-prefix-p "*ghostel" name)))
                        (string-prefix-p "PREVIEW ::" name)
                        (string= name ""))))))
      (buffer-list)))
   (setq centaur-tabs-buffer-list-function #'start/tabs-buffer-list)
   ;; Disable the tab bar in transient/popup buffers.
-  (dolist (hook '(dashboard-mode-hook calendar-mode-hook
-                  helpful-mode-hook help-mode-hook))
+  (dolist (hook '(calendar-mode-hook helpful-mode-hook help-mode-hook))
     (add-hook hook #'centaur-tabs-local-mode))
   (centaur-tabs-mode 1)
   ;; Group tabs by project name; the default `centaur-tabs-buffer-groups'
@@ -398,12 +424,6 @@
   (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff-isort ruff))
   (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff-isort ruff)))
 
-(use-package sideline-flymake
-  :hook (flymake-mode . sideline-mode)
-  :custom
-  (sideline-flymake-display-mode 'line) ;; Show errors on the current line
-  (sideline-backends-right '(sideline-flymake)))
-
 (use-package eldoc-box
   :diminish eldoc-box-hover-at-point-mode
   :hook (eglot-managed-mode . eldoc-box-hover-at-point-mode)
@@ -448,12 +468,21 @@
 
 (use-package org
   :ensure nil
+  :init
+  ;; Org gives `<' paren syntax (for timestamps), so electric-pair completes
+  ;; it to <> and org-tempo's `<s TAB' leaves a stray `>'. Inhibit pairing
+  ;; of `<' in org buffers only.
+  (defun start/org-no-angle-pair ()
+    (setq-local electric-pair-inhibit-predicate
+                (let ((oldp electric-pair-inhibit-predicate))
+                  (lambda (c) (or (char-equal c ?<) (funcall oldp c))))))
   :custom
   (org-edit-src-content-indentation 2) ;; Indent src block contents by 2 spaces.
   (org-return-follows-link t)          ;; RET follows links (TOC, URLs, etc.)
 
   :hook
-  (org-mode . org-indent-mode))
+  (org-mode . org-indent-mode)
+  (org-mode . start/org-no-angle-pair))
 
 (use-package markdown-mode
   :mode (("\\.md\\'"  . gfm-mode)
@@ -469,8 +498,8 @@
             (push '(">=" . ?\u2265) prettify-symbols-alist)  ;; ≥
             (push '("<=" . ?\u2264) prettify-symbols-alist)  ;; ≤
             (push '("!=" . ?\u2260) prettify-symbols-alist)  ;; ≠
-            (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ≝
-            (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≈
+            (push '("==" . ?\u2A75) prettify-symbols-alist)  ;; ⩵
+            (push '("=~" . ?\u2245) prettify-symbols-alist)  ;; ≅
             (push '("<-" . ?\u2190) prettify-symbols-alist)  ;; ←
             (push '("->" . ?\u2192) prettify-symbols-alist)  ;; →
             (push '("|>" . ?\u25B7) prettify-symbols-alist)  ;; ▷
@@ -637,10 +666,14 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
   ;; if-let is obsolete since Emacs 31; if-let* is the same thing.
   (if-let* ((proj (project-current))) (project-root proj) default-directory))
 
+(defun start/test--quote (s)
+  "Shell-quote S, but leave empty strings empty (missing token, not '')."
+  (if (string-empty-p s) "" (shell-quote-argument s)))
+
 (defun start/test--resolve-cmd (cmd)
-  (let* ((file  (or (buffer-file-name) ""))
-         (root  (start/test--project-root))
-         (tname (or (start/test--name-at-point) ""))
+  (let* ((file  (start/test--quote (or (buffer-file-name) "")))
+         (root  (start/test--quote (start/test--project-root)))
+         (tname (start/test--quote (or (start/test--name-at-point) "")))
          (line  (number-to-string (line-number-at-pos))))
     (thread-last cmd
                  (string-replace "%f" file)
@@ -752,14 +785,17 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
 (use-package cape
   :after corfu
   :init
-  ;; Functions added later appear earlier in the completion list.
-  ;; Order from low to high priority — dabbrev (buffer-local words) is most
-  ;; useful for programming, so it goes last.
+  ;; Fallbacks, tried in reverse order of addition (dict last).
   (add-to-list 'completion-at-point-functions #'cape-dict)
   (add-to-list 'completion-at-point-functions #'cape-file)
   (add-to-list 'completion-at-point-functions #'cape-elisp-block)
-  (add-to-list 'completion-at-point-functions #'cape-keyword)
-  (add-to-list 'completion-at-point-functions #'cape-dabbrev))
+  :config
+  ;; Capfs are exclusive: the first one with candidates wins, so a bare
+  ;; cape-dabbrev would shadow keyword/snippet completion in most buffers.
+  ;; Merge the three prog-buffer sources into one candidate list instead.
+  ;; (Eglot buffers replace this stack entirely; see the Eglot section.)
+  (add-to-list 'completion-at-point-functions
+               (cape-capf-super #'cape-dabbrev #'cape-keyword #'yasnippet-capf)))
 
 (use-package orderless
   :custom
@@ -770,7 +806,7 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
   :init
   (vertico-mode))
 
-(savehist-mode) ;; Enables save history mode
+;; (savehist-mode is enabled in Good Defaults.)
 
 (use-package marginalia
   :after vertico
