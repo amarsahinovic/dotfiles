@@ -83,6 +83,9 @@
   (column-number-mode t)                  ;; Display column in mode line
 
   (mouse-wheel-progressive-speed nil)     ;; Disable progressive speed when scrolling
+  (mouse-drag-copy-region t)              ;; Mouse selection goes straight to the kill ring
+
+  (ring-bell-function 'ignore)            ;; No beeping or flashing, ever (C-g etc.)
 
   (use-short-answers t)       ;; Use short answers (y instead of yes)
 
@@ -800,6 +803,9 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
 (use-package orderless
   :custom
   (completion-styles '(orderless basic))
+  ;; Without this, Emacs's built-in per-category defaults (buffer, unicode-name,
+  ;; ...) take precedence over completion-styles and bypass orderless there.
+  (completion-category-defaults nil)
   (completion-category-overrides '((file (styles basic partial-completion)))))
 
 (use-package vertico
