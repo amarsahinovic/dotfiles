@@ -154,6 +154,27 @@
          ("<C-wheel-up>" . text-scale-increase)
          ("<C-wheel-down>" . text-scale-decrease)))
 
+(use-package window
+  :ensure nil
+  :custom
+  (display-buffer-alist
+   '(;; Ephemeral noise -> shallow bottom side window
+     ("\\*\\(Messages\\|Warnings\\|Backtrace\\|Compile-Log\\|Occur\\)\\*"
+      (display-buffer-in-side-window)
+      (window-height . 0.25) (side . bottom) (slot . 0))
+     ;; Compilation / test-runner output -> taller bottom window
+     ("\\*compilation\\*"
+      (display-buffer-in-side-window)
+      (window-height . 0.30) (side . bottom) (slot . 1))
+     ;; Flymake diagnostics list (C-c e l uses consult, but the buffer too)
+     ("\\*Flymake diagnostics"
+      (display-buffer-in-side-window)
+      (window-height . 0.25) (side . bottom) (slot . 2))
+     ;; Documentation -> right side window ([Hh]elp also catches *helpful ...*)
+     ("\\*\\([Hh]elp\\|eldoc\\|devdocs\\)"
+      (display-buffer-in-side-window)
+      (window-width . 0.35) (side . right) (slot . 0)))))
+
 (use-package avy
   :bind ("C-;" . avy-goto-char-timer))
 
@@ -369,6 +390,10 @@
   ;; On selecting a project, drop straight into the consult file finder
   ;; (mirrors the old projectile-find-file switch action, but with preview).
   (project-switch-commands #'consult-project-extra-find)
+  ;; Monorepo support: treat subdirectories with these markers as project
+  ;; roots of their own, so Eglot and project commands scope correctly.
+  (project-vc-extra-root-markers '("mix.exs" "package.json" "pyproject.toml"
+                                   "go.mod" "Cargo.toml"))
   :config
   ;; Reuse project.el's own `project-prefix-map' (the full native C-x p menu:
   ;; find-regexp, query-replace, shell, eshell, vc-dir, ...) rather than
@@ -401,6 +426,7 @@
     typescript-ts-mode tsx-ts-mode js-ts-mode) . eglot-ensure)
   :custom
   (eglot-events-buffer-config '(:size 0)) ;; Replaces obsolete eglot-events-buffer-size
+  (eglot-send-changes-idle-time 0.1)      ;; Snappier diagnostics (default 0.5s)
   (eglot-autoshutdown t)
   (eglot-sync-connect 0)
   (eglot-extend-to-xref t)
@@ -487,6 +513,9 @@
 
 (use-package org
   :ensure nil
+  :bind
+  (("C-c a" . org-agenda)
+   ("C-c c" . org-capture))
   :init
   ;; Org gives `<' paren syntax (for timestamps), so electric-pair completes
   ;; it to <> and org-tempo's `<s TAB' leaves a stray `>'. Inhibit pairing
@@ -499,9 +528,22 @@
   (org-edit-src-content-indentation 2) ;; Indent src block contents by 2 spaces.
   (org-return-follows-link t)          ;; RET follows links (TOC, URLs, etc.)
 
+  ;; Notes/agenda/capture
+  (org-directory "~/org/")
+  (org-default-notes-file (expand-file-name "inbox.org" org-directory))
+  (org-agenda-files (list org-directory))  ;; Every .org file in ~/org is agenda material
+  (org-capture-templates
+   '(("t" "Todo" entry (file+headline org-default-notes-file "Tasks")
+      "* TODO %?\n  %U\n  %a")           ;; %a links back to where you captured from
+     ("n" "Note" entry (file+headline org-default-notes-file "Notes")
+      "* %?\n  %U")))
+  (org-log-done 'time)                     ;; Timestamp when a TODO flips to DONE
+
   :hook
   (org-mode . org-indent-mode)
-  (org-mode . start/org-no-angle-pair))
+  (org-mode . start/org-no-angle-pair)
+  :config
+  (make-directory org-directory t))  ;; Ensure ~/org exists so capture/agenda just work
 
 (use-package markdown-mode
   :mode (("\\.md\\'"  . gfm-mode)
