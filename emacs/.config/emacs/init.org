@@ -1506,7 +1506,24 @@ like a modern file tree, instead of the old separate floating frame.
     (speedbar-window-default-width 25)  ;; Emacs 31: side-window width...
     (speedbar-window-max-width 25)      ;; ...and cap so it doesn't fight other windows
     (speedbar-show-unknown-files t)     ;; Show all files, not just "supported" ones
-    :bind ("C-x t s" . speedbar-window))
+    (speedbar-prefer-window t)          ;; Emacs 31.1: M-x speedbar docks too, instead of a frame
+    :bind ("C-x t s" . speedbar-window)
+    :config
+    ;; `speedbar-find-file-in-frame' is still frame-era code: with the docked
+    ;; side window it ends up calling `switch-to-buffer' from Speedbar's
+    ;; *dedicated* window, which falls back to display-buffer and splits the
+    ;; editing area (files then alternate between the two panes). Open files
+    ;; in the most recently used editing window instead; a buffer already on
+    ;; screen just gets its window selected (reuse-window).
+    (defun start/speedbar-find-file (orig file)
+      (if (and (fboundp 'speedbar-window--live-p) (speedbar-window--live-p))
+          (select-window
+           (display-buffer (find-file-noselect file)
+                           '((display-buffer-reuse-window
+                              display-buffer-use-some-window)
+                             (some-window . mru))))
+        (funcall orig file)))  ;; Old floating-frame speedbar keeps old behavior
+    (advice-add 'speedbar-find-file-in-frame :around #'start/speedbar-find-file))
 #+end_src
 
 ** Diminish
