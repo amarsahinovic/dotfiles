@@ -68,6 +68,9 @@
 
   (blink-cursor-mode nil)     ;; Don't blink cursor
   (global-auto-revert-mode t) ;; Automatically reload file and show changes if the file has changed
+  (auto-revert-avoid-polling t)  ;; Use inotify file notifications instead of polling every 5s
+  (auto-revert-check-vc-info t)  ;; Keep the modeline branch name honest after external git ops
+  (context-menu-mode t)          ;; Right-click opens a proper context menu
 
   (recentf-mode t)            ;; Enable recent file mode (needed by consult-recent-file)
   (save-place-mode t)         ;; Reopen files at the cursor position you left them at
@@ -88,6 +91,17 @@
   (ring-bell-function 'ignore)            ;; No beeping or flashing, ever (C-g etc.)
 
   (use-short-answers t)       ;; Use short answers (y instead of yes)
+
+  ;; Minibuffer behavior
+  (enable-recursive-minibuffers t)          ;; Allow M-x etc. while a minibuffer prompt is open
+  (minibuffer-depth-indicate-mode t)        ;; ...and show [2] so nesting is visible
+  (read-file-name-completion-ignore-case t) ;; Case-insensitive file prompts
+  (read-buffer-completion-ignore-case t)    ;; Case-insensitive buffer prompts
+
+  (isearch-lazy-count t)             ;; Show (3/17) match counter in plain C-s
+  (kill-do-not-save-duplicates t)    ;; Don't clutter the kill ring with repeats
+  (help-window-select t)             ;; Focus help windows so q dismisses them immediately
+  (sentence-end-double-space nil)    ;; Single space ends a sentence (fixes M-a/M-e, filling)
 
   ;; This config is GNU-stowed symlinks into a git repo -- without this Emacs
   ;; asks "Symbolic link to Git-controlled source file; follow link?" constantly.
@@ -111,6 +125,8 @@
   (kept-new-versions 6)
   (kept-old-versions 2)
   (auto-save-default t)       ;; Periodic #file# snapshots between saves
+  (create-lockfiles nil)      ;; No .#file symlinks -- they churn Vite/Phoenix watchers,
+                              ;; and protect nothing on a single-user machine
   :hook
   (prog-mode . hs-minor-mode) ;; Enable folding hide/show globally
   (prog-mode . display-line-numbers-mode) ;; Line numbers where they matter...
