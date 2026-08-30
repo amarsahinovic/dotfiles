@@ -87,6 +87,7 @@
 
   (mouse-wheel-progressive-speed nil)     ;; Disable progressive speed when scrolling
   (mouse-drag-copy-region t)              ;; Mouse selection goes straight to the kill ring
+  (mouse-shift-adjust-mode t)             ;; Emacs 31: S-click-drag extends the selection
 
   (ring-bell-function 'ignore)            ;; No beeping or flashing, ever (C-g etc.)
 
@@ -153,6 +154,17 @@
          ("C--" . text-scale-decrease)
          ("<C-wheel-up>" . text-scale-increase)
          ("<C-wheel-down>" . text-scale-decrease)))
+
+;; Code folding (hs-minor-mode is enabled on prog-mode above). Emacs 31 made
+;; it worth using: tree-sitter-aware blocks, org-style cycling, and fringe
+;; markers showing where the folds are.
+(use-package hideshow
+  :ensure nil
+  :custom
+  (hs-show-indicators t)  ;; Emacs 31: fold markers in the fringe
+  :bind (:map hs-minor-mode-map
+              ("C-c h" . hs-cycle)        ;; Cycle block: hide -> hide nested -> show
+              ("C-c H" . hs-toggle-all))) ;; Fold/unfold the whole buffer
 
 (use-package window
   :ensure nil
@@ -297,8 +309,10 @@
 
 (use-package ultra-scroll
   :init
-  (setq scroll-conservatively 101
-        scroll-margin 0)        ; important: scroll-margin>0 not yet supported
+  (setq scroll-conservatively 101 ; Never recenter; scroll line-by-line at edges
+        scroll-margin 4)          ; Keep 4 lines of context around point
+                                  ; (supported since ultra-scroll v0.7 -- it
+                                  ; suspends the margin during pixel scrolls)
   :config
   (ultra-scroll-mode 1))
 
