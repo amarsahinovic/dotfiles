@@ -953,7 +953,25 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
   (speedbar-window-max-width 25)      ;; ...and cap so it doesn't fight other windows
   (speedbar-show-unknown-files t)     ;; Show all files, not just "supported" ones
   (speedbar-prefer-window t)          ;; Emacs 31.1: M-x speedbar docks too, instead of a frame
-  :bind ("C-x t s" . speedbar-window)
+  ;; NERDTree-ish behavior and looks
+  (speedbar-update-flag t)            ;; Follow mode: tree tracks the buffer you're in
+  (speedbar-use-images nil)           ;; Text [+]/[-] instead of the 1997 GIF icons
+  (speedbar-indentation-width 2)      ;; Default 1 is too cramped to read the tree
+  (speedbar-hide-button-brackets-flag t)              ;; "+" instead of "<+>"
+  (speedbar-query-confirmation-method 'none-but-delete) ;; Only confirm deletions
+  :bind (("C-x t s" . speedbar-window)
+         :map speedbar-file-key-map
+         ("N" . start/speedbar-create-file)) ;; NERDTree "ma": new file in dir at point
+  :init
+  (defun start/speedbar-create-file (file)
+    "Create FILE (default: directory at point) and open it."
+    (interactive
+     (list (read-file-name "Create file: " (speedbar-line-directory))))
+    (make-directory (file-name-directory (expand-file-name file)) t)
+    (unless (file-exists-p file)
+      (write-region "" nil file))
+    (speedbar-refresh)
+    (speedbar-find-file-in-frame (expand-file-name file)))
   :config
   ;; `speedbar-find-file-in-frame' is still frame-era code: with the docked
   ;; side window it ends up calling `switch-to-buffer' from Speedbar's
@@ -969,7 +987,22 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
                             display-buffer-use-some-window)
                            (some-window . mru))))
       (funcall orig file)))  ;; Old floating-frame speedbar keeps old behavior
-  (advice-add 'speedbar-find-file-in-frame :around #'start/speedbar-find-file))
+  (advice-add 'speedbar-find-file-in-frame :around #'start/speedbar-find-file)
+
+  ;; Upstream bug #2: `speedbar-window-mode' never puts its buffer in
+  ;; `speedbar-mode' (the keymap is grafted separately), so the buffer-local
+  ;; dframe mouse handlers -- which only the mode body sets -- stay nil and
+  ;; every mouse click is silently dropped. Wire them up ourselves. We don't
+  ;; call (speedbar-mode) instead: it would wipe the buffer-local kill-hook
+  ;; and hscroll setup that speedbar-window-mode installs.
+  (defun start/speedbar-window-enable-mouse (&rest _)
+    (when (and (boundp 'speedbar-buffer) (buffer-live-p speedbar-buffer))
+      (with-current-buffer speedbar-buffer
+        (setq dframe-help-echo-function #'speedbar-item-info
+              dframe-mouse-click-function #'speedbar-click
+              dframe-mouse-position-function #'speedbar-position-cursor-on-line
+              truncate-lines t))))  ;; Mode body would set this too; don't wrap long names
+  (advice-add 'speedbar-window-mode :after #'start/speedbar-window-enable-mouse))
 
 (use-package diminish)
 
