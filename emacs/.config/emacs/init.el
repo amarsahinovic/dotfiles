@@ -99,10 +99,25 @@
   (read-file-name-completion-ignore-case t) ;; Case-insensitive file prompts
   (read-buffer-completion-ignore-case t)    ;; Case-insensitive buffer prompts
 
-  (isearch-lazy-count t)             ;; Show (3/17) match counter in plain C-s
   (kill-do-not-save-duplicates t)    ;; Don't clutter the kill ring with repeats
+  (save-interprogram-paste-before-kill t) ;; Push the system clipboard onto the kill ring before a kill overwrites it
   (help-window-select t)             ;; Focus help windows so q dismisses them immediately
   (sentence-end-double-space nil)    ;; Single space ends a sentence (fixes M-a/M-e, filling)
+  (ffap-machine-p-known 'reject)     ;; Don't ping hostname-looking text at point during find-file
+
+  ;; Windows
+  (switch-to-buffer-obey-display-actions t) ;; C-x b and friends respect `display-buffer-alist' too
+  (window-combination-resize t)             ;; Splitting rebalances all siblings, not just the split window
+
+  ;; Matching parens (`show-paren-mode' is on by default)
+  (show-paren-delay 0)
+  (show-paren-context-when-offscreen 'overlay) ;; Overlay the opening line when it's scrolled off screen
+
+  ;; Assume left-to-right text; skips bidirectional scanning on long lines.
+  (bidi-paragraph-direction 'left-to-right)
+  (bidi-inhibit-bpa t)
+
+  (mouse-wheel-tilt-scroll t)        ;; Horizontal scrolling from a touchpad / tilt wheel
 
   ;; This config is GNU-stowed symlinks into a git repo -- without this Emacs
   ;; asks "Symbolic link to Git-controlled source file; follow link?" constantly.
@@ -161,10 +176,24 @@
 (use-package hideshow
   :ensure nil
   :custom
-  (hs-show-indicators t)  ;; Emacs 31: fold markers in the fringe
+  (hs-show-indicators t)       ;; Emacs 31: fold markers in the fringe
+  (hs-display-lines-hidden t)  ;; Emacs 31: "...N lines" on each folded block
   :bind (:map hs-minor-mode-map
               ("C-c h" . hs-cycle)        ;; Cycle block: hide -> hide nested -> show
               ("C-c H" . hs-toggle-all))) ;; Fold/unfold the whole buffer
+
+;; Isearch: the built-in search is better than it looks once tuned.
+(use-package isearch
+  :ensure nil
+  :custom
+  (isearch-lazy-count t)                 ;; Show (3/17) match counter
+  (lazy-count-prefix-format "(%s/%s) ")
+  (isearch-allow-motion t)               ;; M-< / M-> / C-v / M-v jump between matches instead of exiting
+  (isearch-allow-scroll t)               ;; Scrolling doesn't end the search
+  (isearch-repeat-on-direction-change t) ;; C-r right after C-s goes to the previous match immediately
+  (isearch-wrap-pause 'no-ding)          ;; Wrap around silently instead of failing first
+  :bind (:map isearch-mode-map
+              ("C-." . isearch-forward-thing-at-point))) ;; Search for the thing under point
 
 (use-package window
   :ensure nil
@@ -188,7 +217,20 @@
       (window-width . 0.35) (side . right) (slot . 0)))))
 
 (use-package avy
-  :bind ("C-;" . avy-goto-char-timer))
+  :bind (("C-;" . avy-goto-char-timer)
+         :map isearch-mode-map
+         ("C-;" . avy-isearch))  ;; Jump to one of the highlighted isearch matches
+  :config
+  ;; After avy-goto-char-timer, press `.' then a target to run embark-act
+  ;; there and come back: act on anything you can see without moving point.
+  (defun start/avy-action-embark (pt)
+    (unwind-protect
+        (save-excursion
+          (goto-char pt)
+          (embark-act))
+      (select-window (cdr (ring-ref avy-ring 0))))
+    t)
+  (setf (alist-get ?. avy-dispatch-alist) #'start/avy-action-embark))
 
 (use-package ace-window
   :bind ("M-o" . ace-window)
@@ -775,17 +817,33 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
 (defun start/test-at-point () (interactive) (start/test--run :test-at-point))
 (defun start/test-single ()  (interactive) (start/test--run :test-single))
 
-;; C-c r prefix: Run/test operations
-(with-eval-after-load 'general
-  (general-create-definer start/run-keys :prefix "C-c r")
-  (start/run-keys
-    "" '(:ignore t :wk "Run/Test")
-    "r" '(start/run :wk "Run file/project")
-    "t" '(start/test-at-point :wk "Test at point")
-    "s" '(start/test-single :wk "Test at point (stop on first fail)")
-    "f" '(start/test-file :wk "Test file")
-    "a" '(start/test-all :wk "Test all")
-    "l" '(start/test-rerun :wk "Re-run last (recompile)")))
+;; C-c r: a transient menu for the runner. Every option is visible at once,
+;; and C-u before a key still prompts to edit the command before running.
+(use-package transient
+  :ensure nil  ;; Built-in (magit may install a newer copy; same feature name)
+  :bind ("C-c r" . start/run-menu)
+  :config
+  (transient-define-prefix start/run-menu ()
+    "Run or test the current file / project."
+    [["Run"
+      ("r" "Run file"           start/run)
+      ("l" "Re-run last command" start/test-rerun)]
+     ["Test"
+      ("t" "At point"                       start/test-at-point)
+      ("s" "At point, stop on first failure" start/test-single)
+      ("f" "This file"                      start/test-file)
+      ("a" "Whole project"                  start/test-all)]]))
+
+(add-hook 'text-mode-hook #'visual-line-mode)
+(add-hook 'text-mode-hook #'visual-wrap-prefix-mode)
+
+(use-package jinx
+  :hook ((text-mode prog-mode conf-mode) . jinx-mode)
+  :bind (("M-$"   . jinx-correct)
+         ("C-M-$" . jinx-languages))
+  :custom
+  (jinx-languages "en_GB")          ;; Installed dictionary (hunspell-en_gb); add more with a space
+  (jinx-camel-modes '(prog-mode)))  ;; Split camelCase identifiers into words before checking
 
 (use-package dired
   :ensure nil
@@ -884,6 +942,15 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
   :init
   (vertico-mode))
 
+(use-package vertico-directory
+  :ensure nil
+  :after vertico
+  :bind (:map vertico-map
+              ("RET"   . vertico-directory-enter)
+              ("DEL"   . vertico-directory-delete-char)
+              ("M-DEL" . vertico-directory-delete-word))
+  :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
+
 ;; (savehist-mode is enabled in Good Defaults.)
 
 (use-package marginalia
@@ -904,6 +971,15 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
 
 (use-package consult
   :hook (completion-list-mode . consult-preview-at-point-mode)
+  :bind (:map isearch-mode-map
+              ;; Hand a live isearch over to consult: M-e edits the search
+              ;; string via history, M-s l / M-s L continue it as consult-line(-multi).
+              ("M-e"   . consult-isearch-history)
+              ("M-s e" . consult-isearch-history)
+              ("M-s l" . consult-line)
+              ("M-s L" . consult-line-multi))
+  :custom
+  (consult-narrow-key "<")  ;; `<' then a group key restricts results to one source
   :init
   (setq register-preview-delay 0.5
         register-preview-function #'consult-register-format)
@@ -926,6 +1002,7 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
      :preview-key 'any)))
 
 (use-package embark
+  :pin melpa  ;; Track the development snapshot (GNU ELPA's 1.2 release lags behind)
   :bind (("C-." . embark-act)
          ("C-," . embark-dwim)
          ("C-h B" . embark-bindings))
@@ -933,11 +1010,9 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
   (setq prefix-help-command #'embark-prefix-help-command))
 
 (use-package embark-consult
+  :pin melpa  ;; Keep in lockstep with embark
   :after (embark consult)
   :hook (embark-collect-mode . consult-preview-at-point-mode))
-
-(use-package wgrep
-  :custom (wgrep-auto-save-buffer t))
 
 (use-package helpful
   ;; `helpful-callable' covers both functions and macros (drop-in for describe-function).
@@ -1015,6 +1090,7 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
   (which-key-mode 1)
   :diminish
   :custom
+  (which-key-use-C-h-commands nil)  ;; Leave C-h-after-prefix to embark's searchable menu (see Embark)
   (which-key-side-window-location 'bottom)
   (which-key-sort-order #'which-key-key-order-alpha) ;; Same as default, except single characters are sorted alphabetically
   (which-key-sort-uppercase-first nil)

@@ -41,6 +41,9 @@
   - [[#ai][AI]]
   - [[#terminal][Terminal]]
   - [[#test-runner][Test Runner]]
+- [[#writing][Writing]]
+  - [[#text-modes][Text modes]]
+  - [[#spell-checking][Spell checking]]
 - [[#files][Files]]
   - [[#dired][Dired]]
   - [[#dirvish][Dirvish]]
@@ -53,7 +56,6 @@
   - [[#vertico-and-marginalia][Vertico and Marginalia]]
   - [[#consult][Consult]]
   - [[#embark][Embark]]
-  - [[#wgrep][Wgrep]]
   - [[#helpful][Helpful]]
   - [[#speedbar][Speedbar]]
   - [[#diminish][Diminish]]
@@ -74,6 +76,8 @@ Notes:
 - Nulling =file-name-handler-alist= skips a regex scan on every =load=/=require=.
 - Setting the menu/tool/scroll bars via =default-frame-alist= means they're
   never drawn (faster than disabling the modes after the frame exists).
+- =initial-frame-alist= paints the first frame in the theme's colours so there
+  is no white flash before =load-theme= runs.
 - We deliberately leave =package.el= enabled — this config uses =package.el= +
   =package-quickstart=, so we must *not* set =package-enable-at-startup= to nil.
 #+begin_src emacs-lisp :tangle ./early-init.el
@@ -103,6 +107,12 @@ Notes:
   (setq menu-bar-mode nil
         tool-bar-mode nil
         scroll-bar-mode nil)
+
+  ;; Paint the first frame in the theme's colours (doom-vibrant bg/fg) before
+  ;; the theme loads, so there's no white flash at startup. Initial frame only:
+  ;; later frames take their colours from whatever theme is active.
+  (push '(background-color . "#242730") initial-frame-alist)
+  (push '(foreground-color . "#bbc2cf") initial-frame-alist)
 
   ;; Startup / redisplay performance.
   (setq frame-inhibit-implied-resize t
@@ -286,10 +296,25 @@ savehist).
     (read-file-name-completion-ignore-case t) ;; Case-insensitive file prompts
     (read-buffer-completion-ignore-case t)    ;; Case-insensitive buffer prompts
 
-    (isearch-lazy-count t)             ;; Show (3/17) match counter in plain C-s
     (kill-do-not-save-duplicates t)    ;; Don't clutter the kill ring with repeats
+    (save-interprogram-paste-before-kill t) ;; Push the system clipboard onto the kill ring before a kill overwrites it
     (help-window-select t)             ;; Focus help windows so q dismisses them immediately
     (sentence-end-double-space nil)    ;; Single space ends a sentence (fixes M-a/M-e, filling)
+    (ffap-machine-p-known 'reject)     ;; Don't ping hostname-looking text at point during find-file
+
+    ;; Windows
+    (switch-to-buffer-obey-display-actions t) ;; C-x b and friends respect `display-buffer-alist' too
+    (window-combination-resize t)             ;; Splitting rebalances all siblings, not just the split window
+
+    ;; Matching parens (`show-paren-mode' is on by default)
+    (show-paren-delay 0)
+    (show-paren-context-when-offscreen 'overlay) ;; Overlay the opening line when it's scrolled off screen
+
+    ;; Assume left-to-right text; skips bidirectional scanning on long lines.
+    (bidi-paragraph-direction 'left-to-right)
+    (bidi-inhibit-bpa t)
+
+    (mouse-wheel-tilt-scroll t)        ;; Horizontal scrolling from a touchpad / tilt wheel
 
     ;; This config is GNU-stowed symlinks into a git repo -- without this Emacs
     ;; asks "Symbolic link to Git-controlled source file; follow link?" constantly.
@@ -348,10 +373,24 @@ savehist).
   (use-package hideshow
     :ensure nil
     :custom
-    (hs-show-indicators t)  ;; Emacs 31: fold markers in the fringe
+    (hs-show-indicators t)       ;; Emacs 31: fold markers in the fringe
+    (hs-display-lines-hidden t)  ;; Emacs 31: "...N lines" on each folded block
     :bind (:map hs-minor-mode-map
                 ("C-c h" . hs-cycle)        ;; Cycle block: hide -> hide nested -> show
                 ("C-c H" . hs-toggle-all))) ;; Fold/unfold the whole buffer
+
+  ;; Isearch: the built-in search is better than it looks once tuned.
+  (use-package isearch
+    :ensure nil
+    :custom
+    (isearch-lazy-count t)                 ;; Show (3/17) match counter
+    (lazy-count-prefix-format "(%s/%s) ")
+    (isearch-allow-motion t)               ;; M-< / M-> / C-v / M-v jump between matches instead of exiting
+    (isearch-allow-scroll t)               ;; Scrolling doesn't end the search
+    (isearch-repeat-on-direction-change t) ;; C-r right after C-s goes to the previous match immediately
+    (isearch-wrap-pause 'no-ding)          ;; Wrap around silently instead of failing first
+    :bind (:map isearch-mode-map
+                ("C-." . isearch-forward-thing-at-point))) ;; Search for the thing under point
 #+end_src
 
 ** Window placement
@@ -398,9 +437,10 @@ Standard Emacs prefixes:
   layout, =C-x w r= rotate layout clockwise, =C-x w f h= / =C-x w f v= flip
   layout left-right / top-bottom — rearrange windows while keeping buffers in place.
 
-New in Emacs 31 (no binding needed): xref buffers are editable — after e.g.
-=C-x p g= (project grep via xref), press =e= to edit results inline across
-files and =C-c C-c= to apply (like wgrep, but built-in).
+New in Emacs 31 (no binding needed): xref and grep buffers are editable —
+after e.g. =C-x p g= (project grep via xref) or an embark-export from
+=consult-ripgrep=, press =e= to edit results inline across files and
+=C-c C-c= to apply (=grep-change-to-grep-edit-mode=; replaced the wgrep package).
 
 Custom prefixes defined below:
 - C-c f: Find operations (files, projects, recent files)
@@ -409,11 +449,14 @@ Custom prefixes defined below:
 - C-c g: Git/Version control (magit commands)
 - C-c e: Language/Eglot operations (LSP, diagnostics)
 - C-c t: Toggle operations (line numbers, themes, modes)
+- C-c r: Run/Test menu (a transient popup; =C-u= before a key edits the command first)
 
 Other global bindings:
 - C-.: embark-act (contextual actions on candidate/target)
 - C-,: embark-dwim (act on thing at point)
-- C-;: avy-goto-char-timer (jump to visible text)
+- C-;: avy-goto-char-timer (jump to visible text; =.= then a target runs embark-act there)
+- In isearch: C-. searches the thing at point, C-; jumps to a match with avy,
+  M-e edits the search string via history, M-s l hands the search to consult-line
 - M-o: ace-window (jump to a window by letter when 3+ are open)
 - C-=: er/expand-region (grow selection: word → sexp → defun → buffer)
 - C-c u: vundo (visual undo tree)
@@ -421,7 +464,20 @@ Other global bindings:
 
 #+begin_src emacs-lisp
   (use-package avy
-    :bind ("C-;" . avy-goto-char-timer))
+    :bind (("C-;" . avy-goto-char-timer)
+           :map isearch-mode-map
+           ("C-;" . avy-isearch))  ;; Jump to one of the highlighted isearch matches
+    :config
+    ;; After avy-goto-char-timer, press `.' then a target to run embark-act
+    ;; there and come back: act on anything you can see without moving point.
+    (defun start/avy-action-embark (pt)
+      (unwind-protect
+          (save-excursion
+            (goto-char pt)
+            (embark-act))
+        (select-window (cdr (ring-ref avy-ring 0))))
+      t)
+    (setf (alist-get ?. avy-dispatch-alist) #'start/avy-action-embark))
 
   (use-package ace-window
     :bind ("M-o" . ace-window)
@@ -1178,7 +1234,9 @@ A small, language-agnostic dispatcher for running tests/benchmarks from the
 current buffer. Each major mode maps to a plist of command templates; tokens are
 expanded before running: =%f= current file, =%t= test name at point, =%l= current
 line number, =%d= project root. Everything runs through =compile= so you get a
-=*compilation*= buffer with clickable errors. Bound under =C-c r=.
+=*compilation*= buffer with clickable errors. =C-c r= opens a transient menu
+(the built-in library behind magit's popups) listing every action; =C-u= before
+a key prompts to edit the resolved command before it runs.
 
 Add a language by extending =start/test-runner-alist= (and, for =:test-at-point=,
 =start/test-name-extractors= if the runner selects by name rather than line).
@@ -1257,17 +1315,53 @@ Add a language by extending =start/test-runner-alist= (and, for =:test-at-point=
   (defun start/test-at-point () (interactive) (start/test--run :test-at-point))
   (defun start/test-single ()  (interactive) (start/test--run :test-single))
 
-  ;; C-c r prefix: Run/test operations
-  (with-eval-after-load 'general
-    (general-create-definer start/run-keys :prefix "C-c r")
-    (start/run-keys
-      "" '(:ignore t :wk "Run/Test")
-      "r" '(start/run :wk "Run file/project")
-      "t" '(start/test-at-point :wk "Test at point")
-      "s" '(start/test-single :wk "Test at point (stop on first fail)")
-      "f" '(start/test-file :wk "Test file")
-      "a" '(start/test-all :wk "Test all")
-      "l" '(start/test-rerun :wk "Re-run last (recompile)")))
+  ;; C-c r: a transient menu for the runner. Every option is visible at once,
+  ;; and C-u before a key still prompts to edit the command before running.
+  (use-package transient
+    :ensure nil  ;; Built-in (magit may install a newer copy; same feature name)
+    :bind ("C-c r" . start/run-menu)
+    :config
+    (transient-define-prefix start/run-menu ()
+      "Run or test the current file / project."
+      [["Run"
+        ("r" "Run file"           start/run)
+        ("l" "Re-run last command" start/test-rerun)]
+       ["Test"
+        ("t" "At point"                       start/test-at-point)
+        ("s" "At point, stop on first failure" start/test-single)
+        ("f" "This file"                      start/test-file)
+        ("a" "Whole project"                  start/test-all)]]))
+#+end_src
+
+* Writing
+Prose-friendly defaults for text buffers (org, markdown, commit messages) and
+spell checking.
+
+** Text modes
+Soft-wrap at word boundaries, and keep wrapped continuation lines indented
+under their list bullet or comment prefix (=visual-wrap-prefix-mode=, Emacs 30+).
+=C-c t w= still toggles wrapping per buffer.
+#+begin_src emacs-lisp
+  (add-hook 'text-mode-hook #'visual-line-mode)
+  (add-hook 'text-mode-hook #'visual-wrap-prefix-mode)
+#+end_src
+
+** Spell checking
+Jinx checks spelling through the system Enchant library: fast, only the visible
+part of the buffer, and in prog buffers only strings and comments. It needs a
+dictionary Enchant can find — on Arch: =sudo pacman -S hunspell-en_us=; verify
+with =enchant-lsmod-2 -list-dicts=. Without one Jinx just reports that no
+dictionary is available.
+- =M-$=: correct the word at point (=C-u M-$= walks every misspelling in the buffer)
+- =C-M-$=: switch dictionary language(s) for this buffer
+#+begin_src emacs-lisp
+  (use-package jinx
+    :hook ((text-mode prog-mode conf-mode) . jinx-mode)
+    :bind (("M-$"   . jinx-correct)
+           ("C-M-$" . jinx-languages))
+    :custom
+    (jinx-languages "en_GB")          ;; Installed dictionary (hunspell-en_gb); add more with a space
+    (jinx-camel-modes '(prog-mode)))  ;; Split camelCase identifiers into words before checking
 #+end_src
 
 * Files
@@ -1414,6 +1508,9 @@ Recomended for packages like vertico, corfu.
 ** Vertico and Marginalia
 - Vertico: Provides a performant and minimalistic vertical completion UI based on the default completion system.
 - Savehist: Saves completion history.
+- Vertico-directory (bundled): path-component editing in file prompts — =M-DEL=
+  deletes a whole directory, =RET= on a directory enters it, and typing =~/= or
+  =//= tidies the prompt instead of leaving the old path visible.
 - Marginalia: Adds extra metadata for completions in the margins (like descriptions).
 - Nerd-icons-completion: Adds icons to completion candidates using the built in completion metadata functions.
 
@@ -1423,6 +1520,15 @@ One alternative is ivy and counsel, check out the [[https://github.com/MiniApoll
   (use-package vertico
     :init
     (vertico-mode))
+
+  (use-package vertico-directory
+    :ensure nil
+    :after vertico
+    :bind (:map vertico-map
+                ("RET"   . vertico-directory-enter)
+                ("DEL"   . vertico-directory-delete-char)
+                ("M-DEL" . vertico-directory-delete-word))
+    :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
 
   ;; (savehist-mode is enabled in Good Defaults.)
 
@@ -1449,6 +1555,15 @@ Check out their [[https://github.com/minad/consult][git repository]] for more aw
 
   (use-package consult
     :hook (completion-list-mode . consult-preview-at-point-mode)
+    :bind (:map isearch-mode-map
+                ;; Hand a live isearch over to consult: M-e edits the search
+                ;; string via history, M-s l / M-s L continue it as consult-line(-multi).
+                ("M-e"   . consult-isearch-history)
+                ("M-s e" . consult-isearch-history)
+                ("M-s l" . consult-line)
+                ("M-s L" . consult-line-multi))
+    :custom
+    (consult-narrow-key "<")  ;; `<' then a group key restricts results to one source
     :init
     (setq register-preview-delay 0.5
           register-preview-function #'consult-register-format)
@@ -1475,9 +1590,17 @@ Check out their [[https://github.com/minad/consult][git repository]] for more aw
 Contextual action menu for completion candidates and targets.
 - =C-.= to act on any candidate in vertico, corfu, dired, etc.
 - =C-,= as dwim (act on thing at point without prompt)
-- From a =consult-ripgrep= result: embark-export to wgrep for mass editing
+- =C-h= after a prefix (e.g. =C-c f C-h=): a searchable vertico menu of every
+  command under that prefix, with docstrings; =@= then a key runs it directly.
+  Complements which-key's passive popup rather than replacing it -- Embark's
+  =embark-auto-prefix-help-mode= was tried and dropped because it takes over the
+  minibuffer, so the key you were about to press becomes filter text.
+- From a =consult-ripgrep= result: embark-export (=C-. E=) to a grep buffer,
+  then =e= to edit the results in place and =C-c C-c= to write the changes to
+  every file (built-in =grep-change-to-grep-edit-mode=, Emacs 31)
 #+begin_src emacs-lisp
   (use-package embark
+    :pin melpa  ;; Track the development snapshot (GNU ELPA's 1.2 release lags behind)
     :bind (("C-." . embark-act)
            ("C-," . embark-dwim)
            ("C-h B" . embark-bindings))
@@ -1485,16 +1608,9 @@ Contextual action menu for completion candidates and targets.
     (setq prefix-help-command #'embark-prefix-help-command))
 
   (use-package embark-consult
+    :pin melpa  ;; Keep in lockstep with embark
     :after (embark consult)
     :hook (embark-collect-mode . consult-preview-at-point-mode))
-#+end_src
-
-** Wgrep
-Edit grep/ripgrep results as a regular buffer and save changes across files.
-Use =C-c C-p= to enter wgrep mode from a =consult-ripgrep= result, =C-c C-c= to apply.
-#+begin_src emacs-lisp
-  (use-package wgrep
-    :custom (wgrep-auto-save-buffer t))
 #+end_src
 
 ** Helpful
@@ -1597,6 +1713,7 @@ Built into Emacs since version 30, so =:ensure nil=.
     (which-key-mode 1)
     :diminish
     :custom
+    (which-key-use-C-h-commands nil)  ;; Leave C-h-after-prefix to embark's searchable menu (see Embark)
     (which-key-side-window-location 'bottom)
     (which-key-sort-order #'which-key-key-order-alpha) ;; Same as default, except single characters are sorted alphabetically
     (which-key-sort-uppercase-first nil)
