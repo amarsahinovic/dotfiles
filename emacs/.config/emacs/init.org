@@ -43,7 +43,6 @@
   - [[#test-runner][Test Runner]]
 - [[#writing][Writing]]
   - [[#text-modes][Text modes]]
-  - [[#spell-checking][Spell checking]]
 - [[#files][Files]]
   - [[#dired][Dired]]
   - [[#dirvish][Dirvish]]
@@ -108,11 +107,11 @@ Notes:
         tool-bar-mode nil
         scroll-bar-mode nil)
 
-  ;; Paint the first frame in the theme's colours (doom-vibrant bg/fg) before
-  ;; the theme loads, so there's no white flash at startup. Initial frame only:
-  ;; later frames take their colours from whatever theme is active.
-  (push '(background-color . "#242730") initial-frame-alist)
-  (push '(foreground-color . "#bbc2cf") initial-frame-alist)
+  ;; Paint the first frame in the theme's colours (ef-owl bg-main/fg-main)
+  ;; before the theme loads, so there's no white flash at startup. Initial frame
+  ;; only: later frames take their colours from whatever theme is active.
+  (push '(background-color . "#292c2f") initial-frame-alist)
+  (push '(foreground-color . "#d0d0d0") initial-frame-alist)
 
   ;; Startup / redisplay performance.
   (setq frame-inhibit-implied-resize t
@@ -603,8 +602,20 @@ Other global bindings:
 
 ** Set Theme
 Use consult-theme to easily try out themes (*Epilepsy* Warning).
+The theme package is declared with =use-package= so a fresh machine installs
+it and =package-autoremove= doesn't treat it as an orphan and delete it (a bare
+=load-theme= gave that exact failure: "Unable to find theme file for doom-vibrant").
 #+begin_src emacs-lisp
-  (load-theme 'doom-vibrant t)
+  ;; Protesilaos' ef-themes: a family of legible light/dark themes. ef-owl is
+  ;; the default; the rest are available to consult-theme (C-c t t).
+  (use-package ef-themes
+    :demand t
+    :config
+    (load-theme 'ef-owl t))
+
+  ;; Kept installed so the doom-* themes stay available to consult-theme.
+  (use-package doom-themes
+    :defer t)
 #+end_src
 
 ** Ultra scroll
@@ -616,6 +627,12 @@ Use consult-theme to easily try out themes (*Epilepsy* Warning).
                                     ; (supported since ultra-scroll v0.7 -- it
                                     ; suspends the margin during pixel scrolls)
     :config
+    ;; Older ultra-scroll (pre-0.7) can't suspend the margin and warns
+    ;; "scroll-margin = 0 is required for glitch-free smooth scrolling" when
+    ;; enabled. Detect that by the variable 0.7+ uses to stash the margin, and
+    ;; fall back to 0 there; `M-x package-upgrade ultra-scroll' restores the margin.
+    (unless (boundp 'ultra-scroll--scroll-margin-orig)
+      (setq scroll-margin 0))
     (ultra-scroll-mode 1))
 #+end_src
 
@@ -1334,8 +1351,7 @@ Add a language by extending =start/test-runner-alist= (and, for =:test-at-point=
 #+end_src
 
 * Writing
-Prose-friendly defaults for text buffers (org, markdown, commit messages) and
-spell checking.
+Prose-friendly defaults for text buffers (org, markdown, commit messages).
 
 ** Text modes
 Soft-wrap at word boundaries, and keep wrapped continuation lines indented
@@ -1344,24 +1360,6 @@ under their list bullet or comment prefix (=visual-wrap-prefix-mode=, Emacs 30+)
 #+begin_src emacs-lisp
   (add-hook 'text-mode-hook #'visual-line-mode)
   (add-hook 'text-mode-hook #'visual-wrap-prefix-mode)
-#+end_src
-
-** Spell checking
-Jinx checks spelling through the system Enchant library: fast, only the visible
-part of the buffer, and in prog buffers only strings and comments. It needs a
-dictionary Enchant can find — on Arch: =sudo pacman -S hunspell-en_us=; verify
-with =enchant-lsmod-2 -list-dicts=. Without one Jinx just reports that no
-dictionary is available.
-- =M-$=: correct the word at point (=C-u M-$= walks every misspelling in the buffer)
-- =C-M-$=: switch dictionary language(s) for this buffer
-#+begin_src emacs-lisp
-  (use-package jinx
-    :hook ((text-mode prog-mode conf-mode) . jinx-mode)
-    :bind (("M-$"   . jinx-correct)
-           ("C-M-$" . jinx-languages))
-    :custom
-    (jinx-languages "en_GB")          ;; Installed dictionary (hunspell-en_gb); add more with a space
-    (jinx-camel-modes '(prog-mode)))  ;; Split camelCase identifiers into words before checking
 #+end_src
 
 * Files

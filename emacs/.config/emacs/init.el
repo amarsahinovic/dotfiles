@@ -347,7 +347,16 @@
    "M-g M" '(consult-global-mark :wk "Jump to global mark"))
   )
 
-(load-theme 'doom-vibrant t)
+;; Protesilaos' ef-themes: a family of legible light/dark themes. ef-owl is
+;; the default; the rest are available to consult-theme (C-c t t).
+(use-package ef-themes
+  :demand t
+  :config
+  (load-theme 'ef-owl t))
+
+;; Kept installed so the doom-* themes stay available to consult-theme.
+(use-package doom-themes
+  :defer t)
 
 (use-package ultra-scroll
   :init
@@ -356,6 +365,12 @@
                                   ; (supported since ultra-scroll v0.7 -- it
                                   ; suspends the margin during pixel scrolls)
   :config
+  ;; Older ultra-scroll (pre-0.7) can't suspend the margin and warns
+  ;; "scroll-margin = 0 is required for glitch-free smooth scrolling" when
+  ;; enabled. Detect that by the variable 0.7+ uses to stash the margin, and
+  ;; fall back to 0 there; `M-x package-upgrade ultra-scroll' restores the margin.
+  (unless (boundp 'ultra-scroll--scroll-margin-orig)
+    (setq scroll-margin 0))
   (ultra-scroll-mode 1))
 
 (add-to-list 'default-frame-alist '(alpha-background . 98)) ;; For all new frames henceforth
@@ -836,14 +851,6 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
 
 (add-hook 'text-mode-hook #'visual-line-mode)
 (add-hook 'text-mode-hook #'visual-wrap-prefix-mode)
-
-(use-package jinx
-  :hook ((text-mode prog-mode conf-mode) . jinx-mode)
-  :bind (("M-$"   . jinx-correct)
-         ("C-M-$" . jinx-languages))
-  :custom
-  (jinx-languages "en_GB")          ;; Installed dictionary (hunspell-en_gb); add more with a space
-  (jinx-camel-modes '(prog-mode)))  ;; Split camelCase identifiers into words before checking
 
 (use-package dired
   :ensure nil
