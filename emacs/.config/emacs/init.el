@@ -75,6 +75,9 @@
   (recentf-mode t)            ;; Enable recent file mode (needed by consult-recent-file)
   (save-place-mode t)         ;; Reopen files at the cursor position you left them at
   (savehist-mode t)           ;; Persist minibuffer history (vertico ordering) across sessions
+  ;; Never persist `command-history': `magit-status' records its whole
+  ;; refresh cache as an argument, which bloated savehist.el to 425MB.
+  (savehist-ignored-variables '(command-history))
 
   (winner-mode t)             ;; Undo/redo window layouts with C-c left / C-c right
   (repeat-mode t)             ;; Repeat command chords by the last key (e.g. C-x o o o)
@@ -214,7 +217,13 @@
      ;; Documentation -> right side window ([Hh]elp also catches *helpful ...*)
      ("\\*\\([Hh]elp\\|eldoc\\|devdocs\\)"
       (display-buffer-in-side-window)
-      (window-width . 0.35) (side . right) (slot . 0)))))
+      (window-width . 0.35) (side . right) (slot . 0))
+     ;; A book being read (see Reading) -> left half, kept by `C-x 1' so the
+     ;; terminal beside it can take over the rest of the frame.
+     ((derived-mode . nov-mode)
+      (display-buffer-in-side-window)
+      (window-width . 0.5) (side . left) (slot . 0)
+      (window-parameters . ((no-delete-other-windows . t)))))))
 
 (use-package avy
   :bind (("C-;" . avy-goto-char-timer)
@@ -334,7 +343,8 @@
     "l" '(display-line-numbers-mode :wk "Line numbers")
     "w" '(visual-line-mode :wk "Visual line mode (wrap)")
     "t" '(consult-theme :wk "Switch theme")
-    "f" '(toggle-frame-fullscreen :wk "Fullscreen"))
+    "f" '(toggle-frame-fullscreen :wk "Fullscreen")
+    "m" '(start/markdown-mermaid-mode :wk "Mermaid diagrams"))
 
   ;; Additional useful global bindings
   (general-define-key
@@ -623,7 +633,139 @@
   (markdown-command "pandoc")
   (markdown-fontify-code-blocks-natively t)
   (markdown-header-scaling t)
-  (markdown-italic-underscore t))
+  (markdown-italic-underscore t)
+  ;; Mostly reading, not writing: hide `**', `#', backticks etc. by default.
+  ;; `markdown-toggle-markup-hiding' brings them back per buffer.
+  (markdown-hide-markup t))
+
+(use-package valign
+  :ensure t
+  :hook (markdown-mode . valign-mode)
+  :custom (valign-fancy-bar t))
+
+(defvar start/markdown-mermaid-cache-dir
+  (no-littering-expand-var-file-name "mermaid/")
+  "Where rendered diagrams are kept, named by a hash of their source.")
+
+(defvar start/markdown-mermaid--pending (make-hash-table :test #'equal)
+  "PNG file -> callbacks waiting on the mmdc process rendering it.")
+
+(defun start/markdown-mermaid--blocks ()
+  "Return (BEG END SOURCE) for every fenced mermaid block in the buffer.
+END is the start of the line after the closing fence: with
+`markdown-hide-markup' the fence line is invisible, and the display engine
+drops overlay strings anchored inside invisible text."
+  (let (blocks)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*\\(```+\\|~~~+\\)[ \t]*mermaid[ \t]*$" nil t)
+        (let ((beg (match-beginning 0))
+              (body (line-beginning-position 2))
+              (fence (regexp-quote (match-string 1))))
+          (when (re-search-forward (concat "^[ \t]*" fence "[ \t]*$") nil t)
+            (push (list beg (line-beginning-position 2)
+                        (buffer-substring-no-properties body (match-beginning 0)))
+                  blocks)))))
+    (nreverse blocks)))
+
+(defun start/markdown-mermaid--png (source callback)
+  "Render mermaid SOURCE to a PNG, then call CALLBACK with (FILE OUTPUT).
+FILE is nil when mmdc failed; OUTPUT is then its error message."
+  (let* ((theme (if (eq (frame-parameter nil 'background-mode) 'dark) "dark" "default"))
+         (base (expand-file-name (sha1 (concat theme "\n" source))
+                                 start/markdown-mermaid-cache-dir))
+         (png (concat base ".png"))
+         (input (concat base ".mmd")))
+    (cond
+     ((file-exists-p png) (funcall callback png nil))
+     ;; Same diagram already rendering (duplicate block, or a second save).
+     ((gethash png start/markdown-mermaid--pending)
+      (push callback (gethash png start/markdown-mermaid--pending)))
+     (t
+      (make-directory start/markdown-mermaid-cache-dir t)
+      (write-region source nil input nil 'silent)
+      (puthash png (list callback) start/markdown-mermaid--pending)
+      (make-process
+       :name "mmdc" :buffer (generate-new-buffer " *mmdc*") :noquery t
+       ;; -s 2: render at 2x so it stays sharp; scaled back down on display.
+       :command (list "mmdc" "-q" "-i" input "-o" png
+                      "-b" "transparent" "-t" theme "-s" "2")
+       :sentinel
+       (lambda (proc _event)
+         (unless (process-live-p proc)
+           (let ((ok (and (zerop (process-exit-status proc)) (file-exists-p png)))
+                 (output (with-current-buffer (process-buffer proc)
+                           ;; mmdc colours its errors; drop the escape codes.
+                           (string-trim (replace-regexp-in-string
+                                         "\e\\[[0-9;]*m" "" (buffer-string)))))
+                 (callbacks (gethash png start/markdown-mermaid--pending)))
+             (remhash png start/markdown-mermaid--pending)
+             (kill-buffer (process-buffer proc))
+             (delete-file input)
+             (dolist (cb callbacks)
+               (funcall cb (and ok png) output))))))))))
+
+(defun start/markdown-mermaid--show (ov display)
+  "Put DISPLAY (an image or a string) on its own line below overlay OV."
+  (overlay-put ov 'after-string
+               (concat (if (stringp display)
+                           display
+                         (propertize " " 'display display))
+                       "\n")))
+
+(defun start/markdown-mermaid--overlays ()
+  "Return the buffer's mermaid image overlays."
+  (seq-filter (lambda (ov) (overlay-get ov 'start/mermaid))
+              (overlays-in (point-min) (point-max))))
+
+(defun start/markdown-mermaid-render ()
+  "Show every mermaid block in the buffer as an image below its source."
+  (interactive)
+  (let ((stale (start/markdown-mermaid--overlays))
+        (width (when-let* ((win (get-buffer-window))) (window-body-width win t))))
+    (pcase-dolist (`(,beg ,end ,source) (start/markdown-mermaid--blocks))
+      ;; Reuse the block's overlay so the old image stays up until the new
+      ;; one is ready, instead of flashing a placeholder on every save.
+      (let ((ov (or (seq-find (lambda (o) (= (overlay-start o) beg)) stale)
+                    (make-overlay beg end))))
+        (setq stale (delq ov stale))
+        (move-overlay ov beg end)
+        (overlay-put ov 'evaporate t)
+        (overlay-put ov 'start/mermaid source)
+        (unless (overlay-get ov 'after-string)
+          (start/markdown-mermaid--show
+           ov (propertize "Rendering mermaid…" 'face 'shadow)))
+        (start/markdown-mermaid--png
+         source
+         (lambda (png output)
+           ;; Skip if the block was edited or removed while mmdc ran.
+           (when (and (overlay-buffer ov)
+                      (equal (overlay-get ov 'start/mermaid) source))
+             (start/markdown-mermaid--show
+              ov (if png
+                     (create-image png 'png nil :max-width width
+                                   :scale (/ (image-compute-scaling-factor) 2.0))
+                   ;; Mermaid's message, minus the JS stack trace under it.
+                   (propertize
+                    (concat "mermaid: "
+                            (substring output 0 (string-match "\n.*://" output)))
+                    'face 'error))))))))
+    (mapc #'delete-overlay stale)))
+
+(define-minor-mode start/markdown-mermaid-mode
+  "Render mermaid code blocks inline, refreshing on save."
+  :lighter " Mermaid"
+  (if start/markdown-mermaid-mode
+      (progn
+        (add-hook 'after-save-hook #'start/markdown-mermaid-render nil t)
+        (start/markdown-mermaid-render))
+    (remove-hook 'after-save-hook #'start/markdown-mermaid-render t)
+    (mapc #'delete-overlay (start/markdown-mermaid--overlays))))
+
+(add-hook 'markdown-mode-hook
+          (lambda ()
+            (when (and (display-graphic-p) (executable-find "mmdc"))
+              (start/markdown-mermaid-mode 1))))
 
 (add-hook 'elixir-ts-mode-hook
           (lambda ()
@@ -737,6 +879,12 @@ Returns nil if no matching entry is found."
          ("M-<backspace>" . ghostel-backward-kill-word)
          ("M-p" . (lambda () (interactive) (ghostel-send-key "p" "ctrl")))
          ("M-n" . (lambda () (interactive) (ghostel-send-key "n" "ctrl"))))
+  :custom
+  ;; Keys that stay with Emacs in semi-char mode. On top of the defaults:
+  ;; `M-o' for ace-window and `C-M-v'/`C-M-S-v' to page the book (see Reading).
+  (ghostel-keymap-exceptions
+   '("C-c" "C-x" "C-u" "C-h" "M-x" "M-:" "C-\\"
+     "M-o" "C-M-v" "C-M-S-v"))
   :config
   ;; A terminal at project root is available on `C-x p m'. We don't add it to
   ;; `project-switch-commands' because that's set to a single command
@@ -851,6 +999,63 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
 
 (add-hook 'text-mode-hook #'visual-line-mode)
 (add-hook 'text-mode-hook #'visual-wrap-prefix-mode)
+
+(use-package nov
+    :mode ("\\.epub\\'" . nov-mode)
+    :custom (nov-text-width t)            ;; Wrap to window width (half-screen pane)
+    :hook ((nov-mode . visual-line-mode)
+           (nov-mode . start/book-mode))
+    :bind (:map nov-mode-map
+                ("C-c C-s" . start/book-send-region)))
+
+  (defun start/book-window ()
+    "Return the visible window showing an EPUB, if any."
+    (seq-find (lambda (w) (with-current-buffer (window-buffer w)
+                            (derived-mode-p 'nov-mode)))
+              (window-list)))
+
+  (defun start/book-scroll-up ()
+    "Page the book forward from any window, crossing chapter boundaries."
+    (interactive)
+    (if-let* ((w (start/book-window)))
+        (with-selected-window w (nov-scroll-up nil))
+      (scroll-other-window)))
+
+  (defun start/book-scroll-down ()
+    "Page the book backward from any window."
+    (interactive)
+    (if-let* ((w (start/book-window)))
+        (with-selected-window w (nov-scroll-down nil))
+      (scroll-other-window-down)))
+
+  (defun start/book-send-region (beg end)
+    "Paste the selected code from the book into the visible ghostel terminal."
+    (interactive "r")
+    (let ((text (buffer-substring-no-properties beg end))
+          (term (seq-find (lambda (b) (with-current-buffer b (derived-mode-p 'ghostel-mode)))
+                          (mapcar #'window-buffer (window-list)))))
+      (unless term (user-error "No visible ghostel window"))
+      (with-current-buffer term (ghostel-paste-string text))
+      (deactivate-mark)))
+
+  (defvar-keymap start/book-mode-map
+    :doc "Keys active while reading a book beside a terminal.")
+
+  (define-minor-mode start/book-mode
+    "Read an EPUB in one window while working in another.
+Points the other-window scroll commands at the book, and pages it with
+nov's own commands so they cross chapter boundaries."
+    :global t :lighter " 📖" :keymap start/book-mode-map
+    ;; `other-window-for-scrolling' signals if this returns a non-window,
+    ;; so fall back to the neighbour when no book is on screen.
+    (setq other-window-scroll-default
+          (and start/book-mode
+               (lambda () (or (start/book-window) (next-window))))))
+
+  ;; Bound here rather than in `defvar-keymap' so the commands above are
+  ;; defined first -- keeps a stray typo from silently binding nothing.
+  (keymap-set start/book-mode-map "C-M-v"   #'start/book-scroll-up)
+  (keymap-set start/book-mode-map "C-M-S-v" #'start/book-scroll-down)
 
 (use-package dired
   :ensure nil
