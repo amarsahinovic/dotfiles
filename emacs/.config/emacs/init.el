@@ -483,6 +483,16 @@
   (keymap-set project-prefix-map "f" #'consult-project-extra-find)
   (keymap-set project-prefix-map "b" #'consult-project-buffer)
   (keymap-set project-prefix-map "m" #'ghostel-project)
+  ;; `project-switch-project' only sets `project-current-directory-override'
+  ;; buffer-locally, but consult computes the candidate list lazily inside
+  ;; the minibuffer, where that local is invisible. Started from a buffer
+  ;; outside any project (e.g. *scratch*), the lookup then falls back to
+  ;; `default-directory', finds nothing, and consult-project-extra crashes
+  ;; vertico with (wrong-type-argument stringp nil). Bind it dynamically for
+  ;; the duration of the switch so every buffer, minibuffer included, sees it.
+  (define-advice project-switch-project (:around (orig dir) start/global-override)
+    (let ((project-current-directory-override dir))
+      (funcall orig dir)))
   ;; Auto-populate project.el's known-projects list from ~/dev, up to two
   ;; directory levels deep -- the replacement for
   ;; projectile-discover-projects-in-search-path. Remembering a directory
@@ -644,128 +654,128 @@
   :custom (valign-fancy-bar t))
 
 (defvar start/markdown-mermaid-cache-dir
-  (no-littering-expand-var-file-name "mermaid/")
-  "Where rendered diagrams are kept, named by a hash of their source.")
+    (no-littering-expand-var-file-name "mermaid/")
+    "Where rendered diagrams are kept, named by a hash of their source.")
 
-(defvar start/markdown-mermaid--pending (make-hash-table :test #'equal)
-  "PNG file -> callbacks waiting on the mmdc process rendering it.")
+  (defvar start/markdown-mermaid--pending (make-hash-table :test #'equal)
+    "PNG file -> callbacks waiting on the mmdc process rendering it.")
 
-(defun start/markdown-mermaid--blocks ()
-  "Return (BEG END SOURCE) for every fenced mermaid block in the buffer.
+  (defun start/markdown-mermaid--blocks ()
+    "Return (BEG END SOURCE) for every fenced mermaid block in the buffer.
 END is the start of the line after the closing fence: with
 `markdown-hide-markup' the fence line is invisible, and the display engine
 drops overlay strings anchored inside invisible text."
-  (let (blocks)
-    (save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward "^[ \t]*\\(```+\\|~~~+\\)[ \t]*mermaid[ \t]*$" nil t)
-        (let ((beg (match-beginning 0))
-              (body (line-beginning-position 2))
-              (fence (regexp-quote (match-string 1))))
-          (when (re-search-forward (concat "^[ \t]*" fence "[ \t]*$") nil t)
-            (push (list beg (line-beginning-position 2)
-                        (buffer-substring-no-properties body (match-beginning 0)))
-                  blocks)))))
-    (nreverse blocks)))
+    (let (blocks)
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^[ \t]*\\(```+\\|~~~+\\)[ \t]*mermaid[ \t]*$" nil t)
+          (let ((beg (match-beginning 0))
+                (body (line-beginning-position 2))
+                (fence (regexp-quote (match-string 1))))
+            (when (re-search-forward (concat "^[ \t]*" fence "[ \t]*$") nil t)
+              (push (list beg (line-beginning-position 2)
+                          (buffer-substring-no-properties body (match-beginning 0)))
+                    blocks)))))
+      (nreverse blocks)))
 
-(defun start/markdown-mermaid--png (source callback)
-  "Render mermaid SOURCE to a PNG, then call CALLBACK with (FILE OUTPUT).
-FILE is nil when mmdc failed; OUTPUT is then its error message."
-  (let* ((theme (if (eq (frame-parameter nil 'background-mode) 'dark) "dark" "default"))
-         (base (expand-file-name (sha1 (concat theme "\n" source))
-                                 start/markdown-mermaid-cache-dir))
-         (png (concat base ".png"))
-         (input (concat base ".mmd")))
-    (cond
-     ((file-exists-p png) (funcall callback png nil))
-     ;; Same diagram already rendering (duplicate block, or a second save).
-     ((gethash png start/markdown-mermaid--pending)
-      (push callback (gethash png start/markdown-mermaid--pending)))
-     (t
-      (make-directory start/markdown-mermaid-cache-dir t)
-      (write-region source nil input nil 'silent)
-      (puthash png (list callback) start/markdown-mermaid--pending)
-      (make-process
-       :name "mmdc" :buffer (generate-new-buffer " *mmdc*") :noquery t
-       ;; -s 2: render at 2x so it stays sharp; scaled back down on display.
-       :command (list "mmdc" "-q" "-i" input "-o" png
-                      "-b" "transparent" "-t" theme "-s" "2")
-       :sentinel
-       (lambda (proc _event)
-         (unless (process-live-p proc)
-           (let ((ok (and (zerop (process-exit-status proc)) (file-exists-p png)))
-                 (output (with-current-buffer (process-buffer proc)
-                           ;; mmdc colours its errors; drop the escape codes.
-                           (string-trim (replace-regexp-in-string
-                                         "\e\\[[0-9;]*m" "" (buffer-string)))))
-                 (callbacks (gethash png start/markdown-mermaid--pending)))
-             (remhash png start/markdown-mermaid--pending)
-             (kill-buffer (process-buffer proc))
-             (delete-file input)
-             (dolist (cb callbacks)
-               (funcall cb (and ok png) output))))))))))
+  (defun start/markdown-mermaid--png (source callback)
+    "Render mermaid SOURCE to a PNG, then call CALLBACK with (FILE OUTPUT).
+  FILE is nil when mmdc failed; OUTPUT is then its error message."
+    (let* ((theme (if (eq (frame-parameter nil 'background-mode) 'dark) "dark" "default"))
+           (base (expand-file-name (sha1 (concat theme "\n" source))
+                                   start/markdown-mermaid-cache-dir))
+           (png (concat base ".png"))
+           (input (concat base ".mmd")))
+      (cond
+       ((file-exists-p png) (funcall callback png nil))
+       ;; Same diagram already rendering (duplicate block, or a second save).
+       ((gethash png start/markdown-mermaid--pending)
+        (push callback (gethash png start/markdown-mermaid--pending)))
+       (t
+        (make-directory start/markdown-mermaid-cache-dir t)
+        (write-region source nil input nil 'silent)
+        (puthash png (list callback) start/markdown-mermaid--pending)
+        (make-process
+         :name "mmdc" :buffer (generate-new-buffer " *mmdc*") :noquery t
+         ;; -s 2: render at 2x so it stays sharp; scaled back down on display.
+         :command (list "mmdc" "-q" "-i" input "-o" png
+                        "-b" "transparent" "-t" theme "-s" "2")
+         :sentinel
+         (lambda (proc _event)
+           (unless (process-live-p proc)
+             (let ((ok (and (zerop (process-exit-status proc)) (file-exists-p png)))
+                   (output (with-current-buffer (process-buffer proc)
+                             ;; mmdc colours its errors; drop the escape codes.
+                             (string-trim (replace-regexp-in-string
+                                           "\e\\[[0-9;]*m" "" (buffer-string)))))
+                   (callbacks (gethash png start/markdown-mermaid--pending)))
+               (remhash png start/markdown-mermaid--pending)
+               (kill-buffer (process-buffer proc))
+               (delete-file input)
+               (dolist (cb callbacks)
+                 (funcall cb (and ok png) output))))))))))
 
-(defun start/markdown-mermaid--show (ov display)
-  "Put DISPLAY (an image or a string) on its own line below overlay OV."
-  (overlay-put ov 'after-string
-               (concat (if (stringp display)
-                           display
-                         (propertize " " 'display display))
-                       "\n")))
+  (defun start/markdown-mermaid--show (ov display)
+    "Put DISPLAY (an image or a string) on its own line below overlay OV."
+    (overlay-put ov 'after-string
+                 (concat (if (stringp display)
+                             display
+                           (propertize " " 'display display))
+                         "\n")))
 
-(defun start/markdown-mermaid--overlays ()
-  "Return the buffer's mermaid image overlays."
-  (seq-filter (lambda (ov) (overlay-get ov 'start/mermaid))
-              (overlays-in (point-min) (point-max))))
+  (defun start/markdown-mermaid--overlays ()
+    "Return the buffer's mermaid image overlays."
+    (seq-filter (lambda (ov) (overlay-get ov 'start/mermaid))
+                (overlays-in (point-min) (point-max))))
 
-(defun start/markdown-mermaid-render ()
-  "Show every mermaid block in the buffer as an image below its source."
-  (interactive)
-  (let ((stale (start/markdown-mermaid--overlays))
-        (width (when-let* ((win (get-buffer-window))) (window-body-width win t))))
-    (pcase-dolist (`(,beg ,end ,source) (start/markdown-mermaid--blocks))
-      ;; Reuse the block's overlay so the old image stays up until the new
-      ;; one is ready, instead of flashing a placeholder on every save.
-      (let ((ov (or (seq-find (lambda (o) (= (overlay-start o) beg)) stale)
-                    (make-overlay beg end))))
-        (setq stale (delq ov stale))
-        (move-overlay ov beg end)
-        (overlay-put ov 'evaporate t)
-        (overlay-put ov 'start/mermaid source)
-        (unless (overlay-get ov 'after-string)
-          (start/markdown-mermaid--show
-           ov (propertize "Rendering mermaid…" 'face 'shadow)))
-        (start/markdown-mermaid--png
-         source
-         (lambda (png output)
-           ;; Skip if the block was edited or removed while mmdc ran.
-           (when (and (overlay-buffer ov)
-                      (equal (overlay-get ov 'start/mermaid) source))
-             (start/markdown-mermaid--show
-              ov (if png
-                     (create-image png 'png nil :max-width width
-                                   :scale (/ (image-compute-scaling-factor) 2.0))
-                   ;; Mermaid's message, minus the JS stack trace under it.
-                   (propertize
-                    (concat "mermaid: "
-                            (substring output 0 (string-match "\n.*://" output)))
-                    'face 'error))))))))
-    (mapc #'delete-overlay stale)))
+  (defun start/markdown-mermaid-render ()
+    "Show every mermaid block in the buffer as an image below its source."
+    (interactive)
+    (let ((stale (start/markdown-mermaid--overlays))
+          (width (when-let* ((win (get-buffer-window))) (window-body-width win t))))
+      (pcase-dolist (`(,beg ,end ,source) (start/markdown-mermaid--blocks))
+        ;; Reuse the block's overlay so the old image stays up until the new
+        ;; one is ready, instead of flashing a placeholder on every save.
+        (let ((ov (or (seq-find (lambda (o) (= (overlay-start o) beg)) stale)
+                      (make-overlay beg end))))
+          (setq stale (delq ov stale))
+          (move-overlay ov beg end)
+          (overlay-put ov 'evaporate t)
+          (overlay-put ov 'start/mermaid source)
+          (unless (overlay-get ov 'after-string)
+            (start/markdown-mermaid--show
+             ov (propertize "Rendering mermaid…" 'face 'shadow)))
+          (start/markdown-mermaid--png
+           source
+           (lambda (png output)
+             ;; Skip if the block was edited or removed while mmdc ran.
+             (when (and (overlay-buffer ov)
+                        (equal (overlay-get ov 'start/mermaid) source))
+               (start/markdown-mermaid--show
+                ov (if png
+                       (create-image png 'png nil :max-width width
+                                     :scale (/ (image-compute-scaling-factor) 2.0))
+                     ;; Mermaid's message, minus the JS stack trace under it.
+                     (propertize
+                      (concat "mermaid: "
+                              (substring output 0 (string-match "\n.*://" output)))
+                      'face 'error))))))))
+      (mapc #'delete-overlay stale)))
 
-(define-minor-mode start/markdown-mermaid-mode
-  "Render mermaid code blocks inline, refreshing on save."
-  :lighter " Mermaid"
-  (if start/markdown-mermaid-mode
-      (progn
-        (add-hook 'after-save-hook #'start/markdown-mermaid-render nil t)
-        (start/markdown-mermaid-render))
-    (remove-hook 'after-save-hook #'start/markdown-mermaid-render t)
-    (mapc #'delete-overlay (start/markdown-mermaid--overlays))))
+  (define-minor-mode start/markdown-mermaid-mode
+    "Render mermaid code blocks inline, refreshing on save."
+    :lighter " Mermaid"
+    (if start/markdown-mermaid-mode
+        (progn
+          (add-hook 'after-save-hook #'start/markdown-mermaid-render nil t)
+          (start/markdown-mermaid-render))
+      (remove-hook 'after-save-hook #'start/markdown-mermaid-render t)
+      (mapc #'delete-overlay (start/markdown-mermaid--overlays))))
 
-(add-hook 'markdown-mode-hook
-          (lambda ()
-            (when (and (display-graphic-p) (executable-find "mmdc"))
-              (start/markdown-mermaid-mode 1))))
+  (add-hook 'markdown-mode-hook
+            (lambda ()
+              (when (and (display-graphic-p) (executable-find "mmdc"))
+                (start/markdown-mermaid-mode 1))))
 
 (add-hook 'elixir-ts-mode-hook
           (lambda ()

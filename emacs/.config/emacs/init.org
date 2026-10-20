@@ -800,6 +800,16 @@ cache to invalidate), and consult supplies the preview-rich finders.
     (keymap-set project-prefix-map "f" #'consult-project-extra-find)
     (keymap-set project-prefix-map "b" #'consult-project-buffer)
     (keymap-set project-prefix-map "m" #'ghostel-project)
+    ;; `project-switch-project' only sets `project-current-directory-override'
+    ;; buffer-locally, but consult computes the candidate list lazily inside
+    ;; the minibuffer, where that local is invisible. Started from a buffer
+    ;; outside any project (e.g. *scratch*), the lookup then falls back to
+    ;; `default-directory', finds nothing, and consult-project-extra crashes
+    ;; vertico with (wrong-type-argument stringp nil). Bind it dynamically for
+    ;; the duration of the switch so every buffer, minibuffer included, sees it.
+    (define-advice project-switch-project (:around (orig dir) start/global-override)
+      (let ((project-current-directory-override dir))
+        (funcall orig dir)))
     ;; Auto-populate project.el's known-projects list from ~/dev, up to two
     ;; directory levels deep -- the replacement for
     ;; projectile-discover-projects-in-search-path. Remembering a directory
