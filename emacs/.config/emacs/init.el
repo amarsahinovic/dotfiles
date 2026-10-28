@@ -29,6 +29,9 @@
 (add-hook 'emacs-startup-hook #'start/display-startup-time)
 
 (require 'use-package-ensure) ;; Load use-package-always-ensure
+;; Record per-package load times so `M-x use-package-report' can show
+;; what startup is spending its time on. Negligible overhead.
+(setq use-package-compute-statistics t)
 (setq use-package-always-ensure t) ;; Always ensures that a package is installed
 
 ;; Note: Org ELPA (orgmode.org/elpa) was retired in 2022 -- org ships from GNU ELPA.
@@ -174,12 +177,15 @@
          ("<C-wheel-down>" . text-scale-decrease)))
 
 ;; Code folding (hs-minor-mode is enabled on prog-mode above). Emacs 31 made
-;; it worth using: tree-sitter-aware blocks, org-style cycling, and fringe
-;; markers showing where the folds are.
+;; it worth using: tree-sitter-aware blocks and org-style cycling.
 (use-package hideshow
   :ensure nil
   :custom
-  (hs-show-indicators t)       ;; Emacs 31: fold markers in the fringe
+  ;; Emacs 31 fold markers in the fringe are off: `hs--add-indicators' runs
+  ;; under jit-lock and, in tree-sitter modes, walks the syntax tree for
+  ;; every fontified line. It was ~30% of all allocation while editing
+  ;; Python and made the mac feel sluggish.
+  (hs-show-indicators nil)
   (hs-display-lines-hidden t)  ;; Emacs 31: "...N lines" on each folded block
   :bind (:map hs-minor-mode-map
               ("C-c h" . hs-cycle)        ;; Cycle block: hide -> hide nested -> show
