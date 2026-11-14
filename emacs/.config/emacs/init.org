@@ -1582,39 +1582,57 @@ under their list bullet or comment prefix (=visual-wrap-prefix-mode=, Emacs 30+)
 
 ** Code blocks
 =C-c w= copies the body of the code block at point, in both Org and Markdown,
-without the =#+begin_src= / =```lang= fence lines. Saves the mark-top,
-move-to-bottom, =M-w= dance when all you want is the code itself.
+without the =#+begin_src= / =```lang= fence lines, and pulses what it copied
+the way =M-w= does. Saves the mark-top, move-to-bottom, =M-w= dance when all
+you want is the code itself.
 #+begin_src emacs-lisp
+  (defun start/code-block-body-bounds ()
+    "Return (BEG . END) of the body of the code block at point, or nil.
+  The fence lines themselves are excluded."
+    (save-excursion
+      (cond
+       ((derived-mode-p 'org-mode)
+        (let ((el (org-element-at-point)))
+          (when (memq (org-element-type el) '(src-block example-block))
+            (goto-char (org-element-property :post-affiliated el))
+            (forward-line 1)
+            (let ((beg (point)))
+              ;; :end includes trailing blank lines; back up over them to the
+              ;; #+end_src line, whose start is where the body ends.
+              (goto-char (org-element-property :end el))
+              (skip-chars-backward " \t\n")
+              (cons beg (line-beginning-position))))))
+       ((derived-mode-p 'markdown-mode)
+        (pcase (markdown-code-block-at-point-p)
+          (`(,beg ,end)
+           (goto-char beg)
+           (if (looking-at-p "[ \t]*\\(?:```\\|~~~\\)")
+               ;; Fenced: BEG is the opening fence line and END the end of
+               ;; the closing one, so the body is the lines in between.
+               (progn
+                 (forward-line 1)
+                 (let ((body-beg (point)))
+                   (goto-char end)
+                   (cons body-beg (line-beginning-position))))
+             ;; Indented block: no fences, the whole thing is the body.
+             (cons beg end))))))))
+
   (defun start/copy-code-block ()
     "Copy the body of the code block at point, without its fence lines."
     (interactive)
-    (let ((body
-           (cond
-            ((derived-mode-p 'org-mode)
-             (let ((el (org-element-at-point)))
-               (when (memq (org-element-type el) '(src-block example-block))
-                 (org-remove-indentation (org-element-property :value el)))))
-            ((derived-mode-p 'markdown-mode)
-             (pcase (markdown-code-block-at-point-p)
-               (`(,beg ,end)
-                (save-excursion
-                  (goto-char beg)
-                  (if (looking-at-p "[ \t]*\\(?:```\\|~~~\\)")
-                      ;; Fenced: BEG is the opening fence line and END the end of
-                      ;; the closing one, so the body is the lines in between.
-                      (progn
-                        (forward-line 1)
-                        (let ((body-beg (point)))
-                          (goto-char end) (forward-line 0)
-                          (buffer-substring-no-properties body-beg (point))))
-                    ;; Indented (four spaces / a tab): no fences, strip the indent.
-                    (replace-regexp-in-string
-                     "^\\(?:    \\|\t\\)" ""
-                     (buffer-substring-no-properties beg end))))))))))
-      (if body
-          (progn (kill-new body)
-                 (message "Copied %d lines" (length (split-string body "\n" t))))
-        (user-error "Not inside a code block"))))
+    (pcase (start/code-block-body-bounds)
+      (`(,beg . ,end)
+       (let ((body (buffer-substring-no-properties beg end)))
+         ;; Drop the indentation Org adds to block contents, and the
+         ;; four-space / tab indent of an unfenced Markdown block.
+         (setq body (if (derived-mode-p 'org-mode)
+                        (org-remove-indentation body)
+                      (replace-regexp-in-string "^\\(?:    \\|\t\\)" "" body)))
+         (kill-new body)
+         (when (fboundp 'pulsar-highlight-pulse)
+           (pulsar-highlight-pulse (cons beg end)))
+         (message "Copied %d lines" (length (split-string body "\n" t)))))
+      (_ (user-error "Not inside a code block"))))
 
   (with-eval-after-load 'org
     (keymap-set org-mode-map "C-c w" #'start/copy-code-block))
