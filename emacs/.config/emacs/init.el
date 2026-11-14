@@ -168,12 +168,9 @@
   ;; Move customization variables to a separate file so init.el stays clean.
   (setq custom-file (locate-user-emacs-file "custom-vars.el"))
   (load custom-file 'noerror 'nomessage)
-  :bind (([escape] . start/escape-quit) ;; Escape quits prompts without touching windows
-         ;; C-+ / C-- (or Ctrl + mouse wheel) for zoom in/out.
-         ("C-+" . text-scale-increase)
-         ("C--" . text-scale-decrease)
-         ("<C-wheel-up>" . text-scale-increase)
-         ("<C-wheel-down>" . text-scale-decrease)))
+  ;; Zoom uses the stock keys: `C-x C-+' / `C-x C--' then keep pressing
+  ;; + / - (0 resets), or Ctrl + mouse wheel. `C--' stays `negative-argument'.
+  :bind ([escape] . start/escape-quit)) ;; Escape quits prompts without touching windows
 
 ;; Code folding (hs-minor-mode is enabled on prog-mode above). Emacs 31 made
 ;; it worth using: tree-sitter-aware blocks and org-style cycling.
@@ -259,7 +256,9 @@
 
 (use-package general
   :config
-  ;; C-c f prefix: Find operations (files, projects, etc.)
+  ;; C-c f prefix: finders that have no stock home. Project-scoped finding
+  ;; is on the built-in project prefix: C-x p f (files), C-x p p (switch
+  ;; project), C-x 4 p f (other window).
   (general-create-definer start/find-keys
     :prefix "C-c f")
 
@@ -267,62 +266,31 @@
     "" '(:ignore t :wk "Find")
     "f" '(consult-find :wk "Find file (all, includes hidden)")
     "d" '(consult-fd :wk "Find file with fd (respects .gitignore)")
-    "p" '(consult-project-extra-find :wk "Find in project (buffers/files/projects)")
-    "o" '(consult-project-extra-find-other-window :wk "Find in project other window (buffers/files/projects)")
     "r" '(consult-recent-file :wk "Recent files")
     "l" '(consult-locate :wk "Locate file (system-wide)"))
 
-  ;; C-c s prefix: Search operations (grep, line search, etc.)
-  (general-create-definer start/search-keys
-    :prefix "C-c s")
-
-  (start/search-keys
-    "" '(:ignore t :wk "Search")
-    "s" '(consult-line :wk "Search line in buffer")
-    "g" '(consult-ripgrep :wk "Ripgrep in project")
-    "G" '(consult-git-grep :wk "Git grep in repository")
-    "r" '(consult-grep :wk "Grep in directory")
-    "i" '(consult-imenu :wk "Search symbols (Imenu)")
-    "I" '(consult-imenu-multi :wk "Search symbols across buffers")
-    "o" '(consult-outline :wk "Search outline headings")
-    "m" '(consult-mark :wk "Jump to mark")
-    "M" '(consult-global-mark :wk "Jump to global mark"))
-
-  ;; Extend M-s (built-in search prefix) with consult commands
-  ;; M-s is the traditional Emacs search prefix
+  ;; Search lives on the built-in M-s prefix (`search-map'), navigation on
+  ;; M-g (`goto-map'), with the keys consult's README uses. Stock bindings
+  ;; there (M-s o occur, M-s . symbol at point, M-g g goto-line) are kept.
   (general-define-key
-   :keymaps 'search-map  ;; search-map is bound to M-s by default
-   "r" '(consult-ripgrep :wk "Ripgrep")
-   "l" '(consult-line :wk "Search line")
-   "i" '(consult-imenu :wk "Imenu")
-   "o" '(consult-outline :wk "Outline"))
+   :keymaps 'search-map
+   "l" '(consult-line :wk "Search line in buffer")
+   "r" '(consult-ripgrep :wk "Ripgrep in project")
+   "g" '(consult-grep :wk "Grep in directory")
+   "G" '(consult-git-grep :wk "Git grep in repository"))
 
-  ;; C-c b prefix: Buffer operations
-  (general-create-definer start/buffer-keys
-    :prefix "C-c b")
+  (general-define-key
+   :keymaps 'goto-map
+   "i" '(consult-imenu :wk "Symbols (imenu)")
+   "I" '(consult-imenu-multi :wk "Symbols across project buffers")
+   "o" '(consult-outline :wk "Outline headings")
+   "m" '(consult-mark :wk "Mark ring")
+   "k" '(consult-global-mark :wk "Global mark ring"))
 
-  (start/buffer-keys
-    "" '(:ignore t :wk "Buffers")
-    "b" '(consult-buffer :wk "Switch buffer (all sources)")
-    "p" '(consult-project-buffer :wk "Switch project buffer")
-    "o" '(consult-buffer-other-window :wk "Switch buffer (other window)")
-    "k" '(kill-current-buffer :wk "Kill current buffer")
-    "K" '(kill-buffer :wk "Kill buffer (select)")
-    "r" '(revert-buffer :wk "Reload buffer")
-    "s" '(save-buffer :wk "Save buffer")
-    "S" '(save-some-buffers :wk "Save modified buffers"))
-
-  ;; C-c g prefix: Git/Version control operations
-  (general-create-definer start/git-keys
-    :prefix "C-c g")
-
-  (start/git-keys
-    "" '(:ignore t :wk "Git")
-    "s" '(magit-status :wk "Magit status")
-    "d" '(magit-diff :wk "Magit diff")
-    "l" '(magit-log :wk "Magit log")
-    "b" '(magit-blame :wk "Magit blame")
-    "c" '(magit-commit :wk "Magit commit"))
+  ;; Buffers and git have stock homes, so no C-c prefixes for them:
+  ;; C-x b / C-x 4 b / C-x p b switch buffers (consult versions, see below),
+  ;; C-x k kills, C-x x g reverts, C-x C-s / C-x s save. Magit binds
+  ;; C-x g (status), C-x M-g (dispatch) and C-c M-g (file dispatch) itself.
 
   ;; C-c e prefix: Language/Eglot operations
   (general-create-definer start/eglot-keys
@@ -888,8 +856,9 @@ Not interactive on purpose: an interactive call would echo the key."
   :defer t)
 
 (use-package ghostel
-  :bind (("C-x m" . ghostel)                 ;; Open a terminal
-         :map ghostel-semi-char-mode-map
+  ;; No global key: `C-x m' stays `compose-mail'. Open a terminal with
+  ;; `C-x p m' (project root, see Project) or `M-x ghostel'.
+  :bind (:map ghostel-semi-char-mode-map
          ("C-s" . consult-line)              ;; Search the terminal buffer
          ("M-<backspace>" . ghostel-backward-kill-word)
          ("M-p" . (lambda () (interactive) (ghostel-send-key "p" "ctrl")))
