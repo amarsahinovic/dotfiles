@@ -13,8 +13,8 @@
   - [[#no-littering][No Littering]]
   - [[#good-defaults][Good Defaults]]
   - [[#window-placement][Window placement]]
-- [[#important-to-load-first][Important to load first]]
-  - [[#traditional-emacs-style-keybindings][Traditional Emacs-style Keybindings]]
+- [[#keybindings][Keybindings]]
+  - [[#conventions-and-prefixes][Conventions and prefixes]]
 - [[#appearance][Appearance]]
   - [[#set-theme][Set Theme]]
   - [[#ultra-scroll][Ultra scroll]]
@@ -48,6 +48,7 @@
 - [[#files][Files]]
   - [[#dired][Dired]]
   - [[#dirvish][Dirvish]]
+  - [[#speedbar][Speedbar]]
 - [[#version-control][Version control]]
   - [[#git][Git]]
 - [[#completion][Completion]]
@@ -57,9 +58,8 @@
   - [[#vertico-and-marginalia][Vertico and Marginalia]]
   - [[#consult][Consult]]
   - [[#embark][Embark]]
+- [[#editing-and-help][Editing and Help]]
   - [[#helpful][Helpful]]
-  - [[#speedbar][Speedbar]]
-  - [[#diminish][Diminish]]
   - [[#rainbow-delimiters][Rainbow Delimiters]]
   - [[#which-key][Which-Key]]
   - [[#ws-butler][Ws-butler]]
@@ -79,8 +79,9 @@ Notes:
   never drawn (faster than disabling the modes after the frame exists).
 - =initial-frame-alist= paints the first frame in the theme's colours so there
   is no white flash before =load-theme= runs.
-- We deliberately leave =package.el= enabled — this config uses =package.el= +
-  =package-quickstart=, so we must *not* set =package-enable-at-startup= to nil.
+- =package.el= stays enabled (don't set =package-enable-at-startup= to nil);
+  only =package-quickstart= is turned off, because a stale quickstart file
+  stops newly installed packages from activating.
 #+begin_src emacs-lisp :tangle ./early-init.el
   ;;; early-init.el --- Loaded before the package system and UI -*- lexical-binding: t; -*-
 
@@ -134,8 +135,6 @@ Notes:
   ;; quickstart file and newly installed packages fail to activate. With it nil,
   ;; package.el scans elpa/ normally. Do NOT set `package-enable-at-startup' nil.
   (setq package-quickstart nil)
-
-  (provide 'early-init)
 #+end_src
 
 * Core setup
@@ -151,23 +150,20 @@ Emacs 31 warns about every elisp file that lacks a =lexical-binding= cookie
 #+end_src
 
 ** Auto-tangle Configuration file
-Auto-Tangle Org configuration file for better startup times.
-If you want to use this don't forget to add this to the top of the org document (#+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes)
+Tangle this file to =init.el= (and =early-init.el=) on save, so Emacs loads
+plain elisp at startup instead of parsing org. The =#+PROPERTY= line at the top
+sets the tangle target.
 
-*Remember*, if this code can't be loaded (errors before this code), the init.el file won't update on change!
-To fix this, you need to find this file (C-x C-f), fix the error and press C-c C-v t to tangle it manually.
-
-This snippet adds a hook to org-mode buffers so that start/org-babel-tangle-config gets executed each time such a buffer gets saved.
-This function checks to see if the file being saved is the Emacs.org file you’re looking at right now, and if so,
-automatically exports the configuration here to the associated output files.
+*Remember*: if =init.el= errors before this hook is installed, saving
+=init.org= won't re-tangle. Fix the error, then tangle by hand with =C-c C-v t=.
 #+begin_src emacs-lisp
   (defun start/org-babel-tangle-config ()
     "Automatically tangle our init.org config file when we save it."
     (interactive)
-    (when (and (buffer-file-name)  ;; This handles nil buffer-file-name
-               (derived-mode-p 'org-mode) ;; Only tangle org buffers
-               ;; Use file-truename to handle simlinks (eg. when using GNU stow)
-               ;; Use equal instead of string-equal as file-truename returns list-like structure
+    (when (and (buffer-file-name)
+               (derived-mode-p 'org-mode)
+               ;; file-truename resolves the stow symlink so the directory
+               ;; compares equal to user-emacs-directory.
                (equal (file-truename (file-name-directory (buffer-file-name)))
                       (file-truename (expand-file-name user-emacs-directory))))
       (let ((org-confirm-babel-evaluate nil)
@@ -194,21 +190,13 @@ automatically exports the configuration here to the associated output files.
 #+end_src
 
 ** Use Package
-A macro that allows you to isolate package configuration in your .emacs file in a
-way that is both performance-oriented and, well, tidy. We use it because it makes
-package configuration really easy.
-
-With Emacs 29 use-package is now built-in.
-
-This code eliminates the need to type :ensure t for each package download.
-Instead, you’ll only need to use :ensure nil when you want to explicitly prevent a
-package from being downloaded.
+Built into Emacs since 29. =use-package-always-ensure= installs any declared
+package that isn't present, so blocks only need =:ensure nil= for built-ins.
 #+begin_src emacs-lisp
-  (require 'use-package-ensure) ;; Load use-package-always-ensure
+  (setq use-package-always-ensure t)
   ;; Record per-package load times so `M-x use-package-report' can show
   ;; what startup is spending its time on. Negligible overhead.
   (setq use-package-compute-statistics t)
-  (setq use-package-always-ensure t) ;; Always ensures that a package is installed
 #+end_src
 
 
@@ -438,9 +426,9 @@ regular file buffers are untouched.
         (window-parameters . ((no-delete-other-windows . t)))))))
 #+end_src
 
-* Important to load first
+* Keybindings
 
-** Traditional Emacs-style Keybindings
+** Conventions and prefixes
 Emacs follows conventions for organizing keybindings under standard prefixes.
 
 Standard Emacs prefixes:
@@ -464,8 +452,9 @@ Custom prefixes defined below:
 - C-c b: Buffer operations (switch, kill, reload)
 - C-c g: Git/Version control (magit commands)
 - C-c e: Language/Eglot operations (LSP, diagnostics)
-- C-c t: Toggle operations (line numbers, themes, modes)
+- C-c t: Toggle operations (line numbers, wrap, theme, fullscreen, mermaid, =T= tab bar)
 - C-c r: Run/Test menu (a transient popup; =C-u= before a key edits the command first)
+- C-c m: Minuet AI completion (=i= complete via minibuffer, =c= configure provider)
 
 Other global bindings:
 - C-.: embark-act (contextual actions on candidate/target)
@@ -477,6 +466,13 @@ Other global bindings:
 - C-=: er/expand-region (grow selection: word → sexp → defun → buffer)
 - C-c u: vundo (visual undo tree)
 - C-c h / C-c H: fold cycle at point / fold-unfold whole buffer (hideshow, prog buffers)
+- C-c w: copy the body of the code block at point (org and markdown)
+- C-c a / C-c c: org agenda / org capture
+- M-i: minuet inline suggestion (M-a/M-A accept line/all, M-n/M-p cycle, M-e dismiss)
+- C-x m: ghostel terminal; C-x p m: terminal at the project root
+- C-x t s: speedbar file tree in a side window
+- C-h D: devdocs lookup; C-h B: searchable list of all bindings (embark)
+- C-h f / v / k / x: helpful versions of the built-in describe commands
 
 #+begin_src emacs-lisp
   (use-package avy
@@ -607,22 +603,17 @@ Other global bindings:
     (general-define-key
      "C-x b" '(consult-buffer :wk "Switch buffer")  ;; Replace default switch-to-buffer
      "C-x 4 b" '(consult-buffer-other-window :wk "Switch buffer other window")
-     "M-y" '(consult-yank-from-kill-ring :wk "Yank from kill ring")  ;; Better than yank-pop
-     "M-g i" '(consult-imenu :wk "Imenu")
-     "M-g o" '(consult-outline :wk "Outline")
-     "M-g m" '(consult-mark :wk "Jump to mark")
-     "M-g M" '(consult-global-mark :wk "Jump to global mark"))
-    )
+     "M-y" '(consult-yank-from-kill-ring :wk "Yank from kill ring")))  ;; Better than yank-pop
 #+end_src
 
 
 * Appearance
 
 ** Set Theme
-Use consult-theme to easily try out themes (*Epilepsy* Warning).
-The theme package is declared with =use-package= so a fresh machine installs
-it and =package-autoremove= doesn't treat it as an orphan and delete it (a bare
-=load-theme= gave that exact failure: "Unable to find theme file for doom-vibrant").
+=ef-owl= is the default; =C-c t t= (=consult-theme=) switches among every
+installed theme (*Epilepsy* warning). Theme packages are declared with
+=use-package= so a fresh machine installs them and =package-autoremove= doesn't
+delete them as orphans.
 #+begin_src emacs-lisp
   ;; Protesilaos' ef-themes: a family of legible light/dark themes. ef-owl is
   ;; the default; the rest are available to consult-theme (C-c t t).
@@ -642,15 +633,8 @@ it and =package-autoremove= doesn't treat it as an orphan and delete it (a bare
     :init
     (setq scroll-conservatively 101 ; Never recenter; scroll line-by-line at edges
           scroll-margin 4)          ; Keep 4 lines of context around point
-                                    ; (supported since ultra-scroll v0.7 -- it
-                                    ; suspends the margin during pixel scrolls)
+                                    ; (ultra-scroll suspends it during pixel scrolls)
     :config
-    ;; Older ultra-scroll (pre-0.7) can't suspend the margin and warns
-    ;; "scroll-margin = 0 is required for glitch-free smooth scrolling" when
-    ;; enabled. Detect that by the variable 0.7+ uses to stash the margin, and
-    ;; fall back to 0 there; `M-x package-upgrade ultra-scroll' restores the margin.
-    (unless (boundp 'ultra-scroll--scroll-margin-orig)
-      (setq scroll-margin 0))
     (ultra-scroll-mode 1))
 #+end_src
 
@@ -725,7 +709,7 @@ header line, tab bar, and fringe.
 ** Tabs
 =centaur-tabs= shows open buffers as tabs along the top, grouped by project (via
 project.el). Ephemeral buffers (=*Messages*=, minibuffer helpers, etc.) are
-filtered out, and popup-ish buffers (dashboard, help) don't get a tab bar.
+filtered out, and popup-ish buffers (help, calendar) don't get a tab bar.
 Navigate with =C-TAB= / =C-S-TAB=.
 #+begin_src emacs-lisp
   (use-package centaur-tabs
@@ -835,21 +819,10 @@ cache to invalidate), and consult supplies the preview-rich finders.
 #+end_src
 
 ** Eglot
-Language Server Protocol Support for Emacs. The built-in is now Eglot (with emacs 29).
-
-Eglot is fast and minimal, but requires manual setup for LSP servers (downloading).
-For more [[https://www.gnu.org/software/emacs/manual/html_mono/eglot.html][information how to use.]] One alternative to Eglot is Lsp-mode, check out the [[https://github.com/MiniApollo/kickstart.emacs/wiki][project wiki]] page for more information.
-
-Eglot is easy to set up, but the only difficult part is downloading and setting up the lsp servers.
-After that just add a hook with eglot-ensure to automatically start eglot for a given file type. And you are done.
-
-As an example to use C, C++ you need to install clangd(or ccls) and uncomment the following lines. Now the language server will start automatically when opening any c,c++ file.
-
-A harder example is Lua. Download the lua-language-server from their git repository, make the lua-language-server file executable at lua-language-server/bin.
-Uncomment the following lines and change the path to the language server executable. Now the language server will work.
-Or add the lua-language-server executable to your path.
-
-If you can use a package manager just install the lsp server and add a hook.
+Built-in LSP client (Emacs 29+). =eglot-ensure= hooks start it automatically
+for the modes below. The servers themselves (pyright, expert/lexical,
+typescript-language-server) are installed outside Emacs and must be on =PATH=.
+[[https://www.gnu.org/software/emacs/manual/html_mono/eglot.html][Eglot manual]].
 #+begin_src emacs-lisp
   (use-package eglot
     :ensure nil
@@ -912,7 +885,6 @@ mix-format for Elixir, prettier for JS/TS). Non-blocking, runs in the
 background. Picks tools off PATH — envrc activates project venvs first.
 #+begin_src emacs-lisp
   (use-package apheleia
-    :diminish apheleia-mode
     :hook (after-init . apheleia-global-mode)
     :config
     ;; Use ruff for Python (fast, modern). Override to 'black if a project prefers.
@@ -927,7 +899,6 @@ Eglot-managed buffers; =C-c e d= (=eldoc-doc-buffer=) is still there for the ful
 doc buffer.
 #+begin_src emacs-lisp
   (use-package eldoc-box
-    :diminish eldoc-box-hover-at-point-mode
     :hook (eglot-managed-mode . eldoc-box-hover-at-point-mode)
     :custom
     (eldoc-echo-area-use-multiline-p nil) ;; Keep the echo area quiet; use the box
@@ -956,7 +927,6 @@ Quality-of-life for editing Elisp: keep forms correctly indented as you type,
 and fontify known function/variable names.
 #+begin_src emacs-lisp
   (use-package aggressive-indent
-    :diminish aggressive-indent-mode
     :hook (emacs-lisp-mode . aggressive-indent-mode))
 
   (use-package highlight-defined
@@ -969,7 +939,6 @@ up in the Corfu popup. It's wired into the eglot completion stack in the [[#eglo
 section (=cape-capf-super= merges it with the LSP source).
 #+begin_src emacs-lisp
   (use-package yasnippet
-    :diminish yas-minor-mode
     :hook (prog-mode . yas-minor-mode))
 
   (use-package yasnippet-snippets
@@ -987,7 +956,6 @@ Integrates direnv into Emacs. Automatically activates the correct environment
 Eglot and other tools pick up the right Python/executables automatically.
 #+begin_src emacs-lisp
   (use-package envrc
-    :diminish envrc-mode
     :hook (after-init . envrc-global-mode))
 #+end_src
 
@@ -1023,11 +991,6 @@ auto-install. Only modes that aren't shipped with Emacs, or that need extra
 configuration, appear below.
 
 *** Org Mode
-Org mode is one of the things that emacs is loved for.
-Once you've used it for a bit, you'll understand why people love it. Even reading about it can be inspiring!
-For example, this document is effectively the source code and descriptions bound into the one document,
-much like the literate programming ideas that Donald Knuth made famous.
-
 Notes and planning live in =~/org= — every =.org= file there is in the agenda.
 - =C-c c= capture a todo (=t=) or note (=n=) into =inbox.org= without leaving what you're doing
 - =C-c a= open the agenda
@@ -1064,16 +1027,39 @@ Notes and planning live in =~/org= — every =.org= file there is in the agenda.
     (org-mode . org-indent-mode)
     (org-mode . start/org-no-angle-pair)
     :config
-    (make-directory org-directory t))  ;; Ensure ~/org exists so capture/agenda just work
+    (make-directory org-directory t)  ;; Ensure ~/org exists so capture/agenda just work
+    ;; org-tempo is a module inside org, not a package: `<s TAB' expands to a src block.
+    (require 'org-tempo))
+#+end_src
+
+**** Table of Contents
+=toc-org= keeps the TOC at the top of this file in sync on save.
+#+begin_src emacs-lisp
+  (use-package toc-org
+    :hook (org-mode . toc-org-mode))
+#+end_src
+
+**** Org Modern
+Visual polish for Org mode: pretty headings, blocks, tags, todo states, tables.
+Actively maintained successor to org-bullets / org-superstar.
+
+Block borders in the fringe are off: they can't coexist with =org-indent-mode=
+(both use =line-prefix=), and because this hook runs before the org-indent one,
+org-modern would otherwise install them and then fight org-indent per block,
+leaving some blocks indented and others flush left with a bracket.
+#+begin_src emacs-lisp
+  (use-package org-modern
+    :hook (org-mode . org-modern-mode)
+    :custom (org-modern-block-fringe nil))
 #+end_src
 
 *** Markdown mode
 Emacs 31 ships an experimental built-in =markdown-ts-mode= (Org-like folding
 and navigation, real font-locking inside fenced code blocks, inline images).
-It isn't wired to =auto-mode-alist= yet and completion inside code blocks is
-rough, so we stay on =markdown-mode= for now — try it with
+In 31.1 it still isn't wired to =auto-mode-alist= and completion inside code
+blocks is rough, so we stay on =markdown-mode= — try it with
 =M-x load-library RET markdown-ts-mode= then =M-x markdown-ts-mode= in a
-buffer, and revisit when Emacs 31 final lands.
+buffer, and revisit as it matures.
 #+begin_src emacs-lisp
   (use-package markdown-mode
     :mode (("\\.md\\'"  . gfm-mode)
@@ -1096,7 +1082,6 @@ Rows with cells wider than the window wrap under =visual-line-mode= and come
 out misaligned; =markdown-live-preview-mode= is the way to read those.
 #+begin_src emacs-lisp
   (use-package valign
-    :ensure t
     :hook (markdown-mode . valign-mode)
     :custom (valign-fancy-bar t))
 
@@ -1281,45 +1266,14 @@ prettify-symbols.
               (prettify-symbols-mode 1)))
 #+end_src
 
-**** Table of Contents
-#+begin_src emacs-lisp
-  (use-package toc-org
-    :commands toc-org-enable
-    :hook (org-mode . toc-org-mode))
-#+end_src
-
-**** Org Modern
-Visual polish for Org mode: pretty headings, blocks, tags, todo states, tables.
-Actively maintained successor to org-bullets / org-superstar.
-
-Block borders in the fringe are off: they can't coexist with =org-indent-mode=
-(both use =line-prefix=), and because this hook runs before the org-indent one,
-org-modern would otherwise install them and then fight org-indent per block,
-leaving some blocks indented and others flush left with a bracket.
-#+begin_src emacs-lisp
-  (use-package org-modern
-    :hook (org-mode . org-modern-mode)
-    :custom (org-modern-block-fringe nil))
-#+end_src
-
-**** Source Code Block Tag Expansion
-Org-tempo is not a separate package but a module within org that can be enabled.
-Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
-#+begin_src emacs-lisp
-  (use-package org-tempo
-    :ensure nil
-    :after org
-    :demand t)
-#+end_src
-
 ** AI
 
 *** Helpers
 
 #+begin_src emacs-lisp
   (defun start/get-authinfo-secret (host user)
-    "Retrieves and returns the secret from .authinfo given a host and user parameters.
-  Returns nil if no matching entry is found."
+    "Return the secret from .authinfo for HOST and USER, or nil if none.
+  Not interactive on purpose: an interactive call would echo the key."
     ;; Store credentials in ~/.authinfo as:
     ;;   machine api.mistral.ai login bearer password api-key-goes-here
     (let* ((auth-data (car (auth-source-search :max 1 :host host :user user)))
@@ -1327,13 +1281,11 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
       (and secret-function (funcall secret-function))))
 
   (defun start/api-mistral-get-bearer-token ()
-    "Retrieves and returns the bearer token for Mistral API."
-    (interactive)
+    "Return the bearer token for the Mistral API."
     (start/get-authinfo-secret "api.mistral.ai" "bearer"))
 
   (defun start/codestral-mistral-get-bearer-token ()
-    "Retrieves and returns the bearer token for Mistral Codestral API."
-    (interactive)
+    "Return the bearer token for the Mistral Codestral API."
     (start/get-authinfo-secret "codestral.mistral.ai" "bearer"))
 #+end_src
 
@@ -1373,21 +1325,19 @@ Org-tempo allows for '<s' followed by TAB to expand to a begin_src tag.
      ("M-e" . #'minuet-dismiss-suggestion))
 
     :init
-    ;; if you want to enable auto suggestion.
-    ;; Note that you can manually invoke completions without enable minuet-auto-suggestion-mode
-    (add-hook 'prog-mode-hook #'minuet-auto-suggestion-mode)
-
+    ;; Auto-suggest only when the Codestral key exists. Without the guard the
+    ;; mode would start in every prog buffer with no provider and fail on each
+    ;; attempt. Suggestions can still be invoked by hand (M-i) either way.
+    (when (start/codestral-mistral-get-bearer-token)
+      (add-hook 'prog-mode-hook #'minuet-auto-suggestion-mode))
     :config
-    ;; Only configure if API key is available
     (let ((api-key (start/codestral-mistral-get-bearer-token)))
       (when api-key
         (setenv "CODESTRAL_API_KEY" api-key)
-        ;; You can use M-x minuet-configure-provider to interactively configure provider and model
+        ;; M-x minuet-configure-provider switches provider/model interactively.
         (setq minuet-provider 'codestral)
         (minuet-set-optional-options minuet-codestral-options :stop ["\n\n"])
-        (minuet-set-optional-options minuet-codestral-options :max_tokens 256)))
-    )
-
+        (minuet-set-optional-options minuet-codestral-options :max_tokens 256))))
 #+end_src
 
 *** agent-shell
@@ -1772,215 +1722,6 @@ only extra binding is =TAB= to expand/collapse a directory subtree.
     :hook (dired-mode . diredfl-mode))
 #+end_src
 
-* Version control
-
-** Git
-*** Magit
-Complete text-based user interface to Git.
-#+begin_src emacs-lisp
-  (use-package magit
-    :commands magit-status
-    :custom
-    ;; Open the status buffer full-frame, and restore the previous window
-    ;; layout when you bury it (q).
-    (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
-    (magit-bury-buffer-function #'magit-restore-window-configuration))
-#+end_src
-
-*** Diff-hl
-Highlights uncommitted changes on the left side of the window (area also known as the "gutter"), allows you to jump between and revert them selectively.
-#+begin_src emacs-lisp
-  (use-package diff-hl
-    :hook ((dired-mode         . diff-hl-dired-mode-unless-remote)
-           (magit-pre-refresh  . diff-hl-magit-pre-refresh)
-           (magit-post-refresh . diff-hl-magit-post-refresh))
-    :init (global-diff-hl-mode))
-#+end_src
-
-* Completion
-
-** Corfu
-Enhances in-buffer completion with a small completion popup.
-Corfu is a small package, which relies on the Emacs completion facilities and concentrates on providing a polished completion.
-For more configuration options check out their [[https://github.com/minad/corfu][git repository]].
-Notes:
-- To enter Orderless field separator, use M-SPC.
-#+begin_src emacs-lisp
-  (use-package corfu
-    :custom
-    (corfu-cycle t)
-    (corfu-auto t)
-    (corfu-auto-prefix 2)
-    (corfu-popupinfo-mode t)
-    (corfu-popupinfo-delay 0.5)
-    (corfu-separator ?\s)             ;; Orderless field separator, use M-SPC
-    (corfu-preview-current nil)       ;; Don't insert completion without confirmation
-    (completion-ignore-case t)
-    (text-mode-ispell-word-completion nil)  ;; Use cape-dict instead (Emacs 30+)
-    (tab-always-indent 'complete)
-    :init
-    (global-corfu-mode))
-
-  (use-package nerd-icons-corfu
-    :after corfu
-    :init (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
-#+end_src
-
-** Cape
-Provides Completion At Point Extensions which can be used in combination with Corfu, Company or the default completion UI.
-Notes:
-- The functions that are added later will be the first in the completion list.
-- Take care when adding Capfs (Completion-at-point-functions) to the list since each of the Capfs adds a small runtime cost.
-Read the [[https://github.com/minad/cape#configuration][configuration section]] in Cape's readme for more information.
-#+begin_src emacs-lisp
-  (use-package cape
-    :after corfu
-    :init
-    ;; Fallbacks, tried in reverse order of addition (dict last).
-    (add-to-list 'completion-at-point-functions #'cape-dict)
-    (add-to-list 'completion-at-point-functions #'cape-file)
-    (add-to-list 'completion-at-point-functions #'cape-elisp-block)
-    :config
-    ;; Capfs are exclusive: the first one with candidates wins, so a bare
-    ;; cape-dabbrev would shadow keyword/snippet completion in most buffers.
-    ;; Merge the three prog-buffer sources into one candidate list instead.
-    ;; (Eglot buffers replace this stack entirely; see the Eglot section.)
-    (add-to-list 'completion-at-point-functions
-                 (cape-capf-super #'cape-dabbrev #'cape-keyword #'yasnippet-capf)))
-#+end_src
-
-** Orderless
-Completion style that divides the pattern into space-separated components, and matches candidates that match all of the components in any order.
-Recomended for packages like vertico, corfu.
-#+begin_src emacs-lisp
-  (use-package orderless
-    :custom
-    (completion-styles '(orderless basic))
-    ;; Without this, Emacs's built-in per-category defaults (buffer, unicode-name,
-    ;; ...) take precedence over completion-styles and bypass orderless there.
-    (completion-category-defaults nil)
-    (completion-category-overrides '((file (styles basic partial-completion)))))
-#+end_src
-
-** Vertico and Marginalia
-- Vertico: Provides a performant and minimalistic vertical completion UI based on the default completion system.
-- Savehist: Saves completion history.
-- Vertico-directory (bundled): path-component editing in file prompts — =M-DEL=
-  deletes a whole directory, =RET= on a directory enters it, and typing =~/= or
-  =//= tidies the prompt instead of leaving the old path visible.
-- Marginalia: Adds extra metadata for completions in the margins (like descriptions).
-- Nerd-icons-completion: Adds icons to completion candidates using the built in completion metadata functions.
-
-We use this packages, because they use emacs native functions. Unlike Ivy or Helm.
-One alternative is ivy and counsel, check out the [[https://github.com/MiniApollo/kickstart.emacs/wiki][project wiki]] for more inforomation.
-#+begin_src emacs-lisp
-  (use-package vertico
-    :init
-    (vertico-mode))
-
-  (use-package vertico-directory
-    :ensure nil
-    :after vertico
-    :bind (:map vertico-map
-                ("RET"   . vertico-directory-enter)
-                ("DEL"   . vertico-directory-delete-char)
-                ("M-DEL" . vertico-directory-delete-word))
-    :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
-
-  ;; (savehist-mode is enabled in Good Defaults.)
-
-  (use-package marginalia
-    :after vertico
-    :init
-    (marginalia-mode))
-
-  (use-package nerd-icons-completion
-    :after marginalia
-    :config
-    (nerd-icons-completion-mode)
-    :hook
-    (marginalia-mode . nerd-icons-completion-marginalia-setup))
-#+end_src
-
-** Consult
-Provides search and navigation commands based on the Emacs completion function.
-Check out their [[https://github.com/minad/consult][git repository]] for more awesome functions.
-#+begin_src emacs-lisp
-  (use-package consult-project-extra
-    :after (consult project)
-    :commands (consult-project-extra-find consult-project-extra-find-other-window))
-
-  (use-package consult
-    :hook (completion-list-mode . consult-preview-at-point-mode)
-    :bind (:map isearch-mode-map
-                ;; Hand a live isearch over to consult: M-e edits the search
-                ;; string via history, M-s l / M-s L continue it as consult-line(-multi).
-                ("M-e"   . consult-isearch-history)
-                ("M-s e" . consult-isearch-history)
-                ("M-s l" . consult-line)
-                ("M-s L" . consult-line-multi))
-    :custom
-    (consult-narrow-key "<")  ;; `<' then a group key restricts results to one source
-    :init
-    (setq register-preview-delay 0.5
-          register-preview-function #'consult-register-format)
-    (advice-add #'register-preview :override #'consult-register-window)
-    (setq xref-show-xrefs-function #'consult-xref
-          xref-show-definitions-function #'consult-xref)
-    ;; Include hidden files, exclude .git
-    (setq consult-find-args "find . -not ( -path '*/.git/*' -prune )")
-    (setq consult-fd-args "fd --hidden --exclude .git --full-path --color=never")
-    :config
-    ;; Project root comes from project.el (`consult-project-function' defaults
-    ;; to `project-current'); no override needed now that projectile is gone.
-    ;; Enable live preview for the find commands (some default to manual M-.)
-    (with-eval-after-load 'consult-project-extra
-      (consult-customize
-       consult-project-extra-find
-       consult-project-extra-find-other-window
-       consult-find
-       consult-fd
-       :preview-key 'any)))
-#+end_src
-
-** Embark
-Contextual action menu for completion candidates and targets.
-- =C-.= to act on any candidate in vertico, corfu, dired, etc.
-- =C-,= as dwim (act on thing at point without prompt)
-- =C-h= after a prefix (e.g. =C-c f C-h=): a searchable vertico menu of every
-  command under that prefix, with docstrings; =@= then a key runs it directly.
-  Complements which-key's passive popup rather than replacing it -- Embark's
-  =embark-auto-prefix-help-mode= was tried and dropped because it takes over the
-  minibuffer, so the key you were about to press becomes filter text.
-- From a =consult-ripgrep= result: embark-export (=C-. E=) to a grep buffer,
-  then =e= to edit the results in place and =C-c C-c= to write the changes to
-  every file (built-in =grep-change-to-grep-edit-mode=, Emacs 31)
-#+begin_src emacs-lisp
-  (use-package embark
-    :pin melpa  ;; Track the development snapshot (GNU ELPA's 1.2 release lags behind)
-    :bind (("C-." . embark-act)
-           ("C-," . embark-dwim)
-           ("C-h B" . embark-bindings))
-    :init
-    (setq prefix-help-command #'embark-prefix-help-command))
-
-  (use-package embark-consult
-    :pin melpa  ;; Keep in lockstep with embark
-    :after (embark consult)
-    :hook (embark-collect-mode . consult-preview-at-point-mode))
-#+end_src
-
-** Helpful
-
-#+begin_src emacs-lisp
-  (use-package helpful
-    ;; `helpful-callable' covers both functions and macros (drop-in for describe-function).
-    :bind (("C-h f" . helpful-callable)
-           ("C-h v" . helpful-variable)
-           ("C-h k" . helpful-key)
-           ("C-h x" . helpful-command)))
-#+end_src
-
 ** Speedbar
 Built-in file/tag tree, used as the sidebar in place of Treemacs (dropped its
 four packages). New in Emacs 31: =speedbar-window= docks it in a side window
@@ -2046,11 +1787,210 @@ like a modern file tree, instead of the old separate floating frame.
     (advice-add 'speedbar-window-mode :after #'start/speedbar-window-enable-mouse))
 #+end_src
 
-** Diminish
-This package implements hiding or abbreviation of the modeline displays (lighters) of minor-modes.
-With this package installed, you can add ‘:diminish’ to any use-package block to hide that particular mode in the modeline.
+* Version control
+
+** Git
+*** Magit
+Complete text-based user interface to Git.
 #+begin_src emacs-lisp
-  (use-package diminish)
+  (use-package magit
+    :defer t   ;; Autoloaded; :custom alone would load it at startup
+    :custom
+    ;; Open the status buffer full-frame, and restore the previous window
+    ;; layout when you bury it (q).
+    (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
+    (magit-bury-buffer-function #'magit-restore-window-configuration))
+#+end_src
+
+*** Diff-hl
+Highlights uncommitted changes on the left side of the window (area also known as the "gutter"), allows you to jump between and revert them selectively.
+#+begin_src emacs-lisp
+  (use-package diff-hl
+    :hook ((dired-mode         . diff-hl-dired-mode-unless-remote)
+           (magit-pre-refresh  . diff-hl-magit-pre-refresh)
+           (magit-post-refresh . diff-hl-magit-post-refresh))
+    :init (global-diff-hl-mode))
+#+end_src
+
+* Completion
+
+** Corfu
+Enhances in-buffer completion with a small completion popup.
+Corfu is a small package, which relies on the Emacs completion facilities and concentrates on providing a polished completion.
+For more configuration options check out their [[https://github.com/minad/corfu][git repository]].
+Notes:
+- To enter Orderless field separator, use M-SPC.
+#+begin_src emacs-lisp
+  (use-package corfu
+    :custom
+    (corfu-cycle t)
+    (corfu-auto t)
+    (corfu-auto-prefix 2)
+    (corfu-popupinfo-mode t)
+    (corfu-popupinfo-delay 0.5)
+    (corfu-separator ?\s)             ;; Orderless field separator, use M-SPC
+    (corfu-preview-current nil)       ;; Don't insert completion without confirmation
+    (completion-ignore-case t)
+    (text-mode-ispell-word-completion nil)  ;; No ispell word completion in text buffers (Emacs 30+)
+    (tab-always-indent 'complete)
+    :init
+    (global-corfu-mode))
+
+  (use-package nerd-icons-corfu
+    :after corfu
+    :init (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+#+end_src
+
+** Cape
+Provides Completion At Point Extensions which can be used in combination with Corfu, Company or the default completion UI.
+Notes:
+- The functions that are added later will be the first in the completion list.
+- Take care when adding Capfs (Completion-at-point-functions) to the list since each of the Capfs adds a small runtime cost.
+Read the [[https://github.com/minad/cape#configuration][configuration section]] in Cape's readme for more information.
+#+begin_src emacs-lisp
+  (use-package cape
+    :after corfu
+    :init
+    ;; Fallbacks, tried in reverse order of addition (file last).
+    (add-to-list 'completion-at-point-functions #'cape-file)
+    (add-to-list 'completion-at-point-functions #'cape-elisp-block)
+    :config
+    ;; Capfs are exclusive: the first one with candidates wins, so a bare
+    ;; cape-dabbrev would shadow keyword/snippet completion in most buffers.
+    ;; Merge the three prog-buffer sources into one candidate list instead.
+    ;; (Eglot buffers replace this stack entirely; see the Eglot section.)
+    (add-to-list 'completion-at-point-functions
+                 (cape-capf-super #'cape-dabbrev #'cape-keyword #'yasnippet-capf)))
+#+end_src
+
+** Orderless
+Completion style that divides the pattern into space-separated components, and matches candidates that match all of the components in any order.
+Recomended for packages like vertico, corfu.
+#+begin_src emacs-lisp
+  (use-package orderless
+    :custom
+    (completion-styles '(orderless basic))
+    ;; Without this, Emacs's built-in per-category defaults (buffer, unicode-name,
+    ;; ...) take precedence over completion-styles and bypass orderless there.
+    (completion-category-defaults nil)
+    (completion-category-overrides '((file (styles basic partial-completion)))))
+#+end_src
+
+** Vertico and Marginalia
+- Vertico: Provides a performant and minimalistic vertical completion UI based on the default completion system.
+- Savehist: Saves completion history.
+- Vertico-directory (bundled): path-component editing in file prompts — =M-DEL=
+  deletes a whole directory, =RET= on a directory enters it, and typing =~/= or
+  =//= tidies the prompt instead of leaving the old path visible.
+- Marginalia: Adds extra metadata for completions in the margins (like descriptions).
+- Nerd-icons-completion: Adds icons to completion candidates using the built in completion metadata functions.
+#+begin_src emacs-lisp
+  (use-package vertico
+    :init
+    (vertico-mode))
+
+  (use-package vertico-directory
+    :ensure nil
+    :after vertico
+    :bind (:map vertico-map
+                ("RET"   . vertico-directory-enter)
+                ("DEL"   . vertico-directory-delete-char)
+                ("M-DEL" . vertico-directory-delete-word))
+    :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
+
+  ;; (savehist-mode is enabled in Good Defaults.)
+
+  (use-package marginalia
+    :after vertico
+    :init
+    (marginalia-mode))
+
+  (use-package nerd-icons-completion
+    :after marginalia
+    :config
+    (nerd-icons-completion-mode)
+    :hook
+    (marginalia-mode . nerd-icons-completion-marginalia-setup))
+#+end_src
+
+** Consult
+Provides search and navigation commands based on the Emacs completion function.
+Check out their [[https://github.com/minad/consult][git repository]] for more awesome functions.
+#+begin_src emacs-lisp
+  (use-package consult-project-extra
+    :after (consult project)
+    :commands (consult-project-extra-find consult-project-extra-find-other-window))
+
+  (use-package consult
+    :hook (completion-list-mode . consult-preview-at-point-mode)
+    :bind (:map isearch-mode-map
+                ;; Hand a live isearch over to consult: M-e edits the search
+                ;; string via history, M-s l / M-s L continue it as consult-line(-multi).
+                ("M-e"   . consult-isearch-history)
+                ("M-s e" . consult-isearch-history)
+                ("M-s l" . consult-line)
+                ("M-s L" . consult-line-multi))
+    :custom
+    (consult-narrow-key "<")  ;; `<' then a group key restricts results to one source
+    :init
+    (setq register-preview-delay 0.5
+          register-preview-function #'consult-register-format)
+    (advice-add #'register-preview :override #'consult-register-window)
+    (setq xref-show-xrefs-function #'consult-xref
+          xref-show-definitions-function #'consult-xref)
+    ;; Include hidden files, exclude .git
+    (setq consult-find-args "find . -not ( -path '*/.git/*' -prune )")
+    (setq consult-fd-args "fd --hidden --exclude .git --full-path --color=never")
+    :config
+    ;; Live preview for the find commands (they default to manual M-.).
+    (consult-customize consult-find consult-fd :preview-key 'any)
+    (with-eval-after-load 'consult-project-extra
+      (consult-customize
+       consult-project-extra-find
+       consult-project-extra-find-other-window
+       :preview-key 'any)))
+#+end_src
+
+** Embark
+Contextual action menu for completion candidates and targets.
+- =C-.= to act on any candidate in vertico, corfu, dired, etc.
+- =C-,= as dwim (act on thing at point without prompt)
+- =C-h= after a prefix (e.g. =C-c f C-h=): a searchable vertico menu of every
+  command under that prefix, with docstrings; =@= then a key runs it directly.
+  Complements which-key's passive popup rather than replacing it -- Embark's
+  =embark-auto-prefix-help-mode= was tried and dropped because it takes over the
+  minibuffer, so the key you were about to press becomes filter text.
+- From a =consult-ripgrep= result: embark-export (=C-. E=) to a grep buffer,
+  then =e= to edit the results in place and =C-c C-c= to write the changes to
+  every file (built-in =grep-change-to-grep-edit-mode=, Emacs 31)
+#+begin_src emacs-lisp
+  (use-package embark
+    :pin melpa  ;; Track the development snapshot (GNU ELPA's 1.2 release lags behind)
+    :bind (("C-." . embark-act)
+           ("C-," . embark-dwim)
+           ("C-h B" . embark-bindings))
+    :init
+    (setq prefix-help-command #'embark-prefix-help-command))
+
+  (use-package embark-consult
+    :pin melpa  ;; Keep in lockstep with embark
+    :after (embark consult)
+    :hook (embark-collect-mode . consult-preview-at-point-mode))
+#+end_src
+
+* Editing and Help
+Small quality-of-life packages that don't belong to one mode: better help
+buffers, key discovery, bracket colouring, whitespace hygiene.
+
+** Helpful
+
+#+begin_src emacs-lisp
+  (use-package helpful
+    ;; `helpful-callable' covers both functions and macros (drop-in for describe-function).
+    :bind (("C-h f" . helpful-callable)
+           ("C-h v" . helpful-variable)
+           ("C-h k" . helpful-key)
+           ("C-h x" . helpful-command)))
 #+end_src
 
 ** Rainbow Delimiters
@@ -2068,7 +2008,6 @@ Built into Emacs since version 30, so =:ensure nil=.
     :ensure nil
     :init
     (which-key-mode 1)
-    :diminish
     :custom
     (which-key-use-C-h-commands nil)  ;; Leave C-h-after-prefix to embark's searchable menu (see Embark)
     (which-key-side-window-location 'bottom)
@@ -2084,21 +2023,17 @@ Built into Emacs since version 30, so =:ensure nil=.
 ** Ws-butler
 #+begin_src emacs-lisp
   (use-package ws-butler
-    :diminish ws-butler-mode
     :init (ws-butler-global-mode))
 #+end_src
 
 ** Eldoc
-Built-in. Diminish it so it doesn't clutter the modeline.
-
-=eldoc-help-at-pt= (Emacs 31) makes eldoc also surface =help-at-pt= text for
+Built-in. =eldoc-help-at-pt= (Emacs 31) makes eldoc also surface =help-at-pt= text for
 whatever is under the cursor — e.g. flymake diagnostics show up automatically
 (in the eldoc-box child frame in Eglot buffers) without hovering the mouse or
 invoking anything.
 #+begin_src emacs-lisp
   (use-package eldoc
     :ensure nil
-    :diminish
     :custom
     (eldoc-help-at-pt t)) ;; Emacs 31: show help-at-point (flymake etc.) via eldoc
 #+end_src
@@ -2110,7 +2045,6 @@ Emacs goes idle. This avoids GC pauses mid-keystroke while still keeping memory
 in check. (=read-process-output-max= is set in [[#early-init][early-init.el]].)
 #+begin_src emacs-lisp
   (use-package gcmh
-    :diminish gcmh-mode
     :hook (after-init . gcmh-mode)
     :custom
     (gcmh-idle-delay 5)

@@ -3,10 +3,10 @@
 (defun start/org-babel-tangle-config ()
   "Automatically tangle our init.org config file when we save it."
   (interactive)
-  (when (and (buffer-file-name)  ;; This handles nil buffer-file-name
-             (derived-mode-p 'org-mode) ;; Only tangle org buffers
-             ;; Use file-truename to handle simlinks (eg. when using GNU stow)
-             ;; Use equal instead of string-equal as file-truename returns list-like structure
+  (when (and (buffer-file-name)
+             (derived-mode-p 'org-mode)
+             ;; file-truename resolves the stow symlink so the directory
+             ;; compares equal to user-emacs-directory.
              (equal (file-truename (file-name-directory (buffer-file-name)))
                     (file-truename (expand-file-name user-emacs-directory))))
     (let ((org-confirm-babel-evaluate nil)
@@ -28,11 +28,10 @@
 
 (add-hook 'emacs-startup-hook #'start/display-startup-time)
 
-(require 'use-package-ensure) ;; Load use-package-always-ensure
+(setq use-package-always-ensure t)
 ;; Record per-package load times so `M-x use-package-report' can show
 ;; what startup is spending its time on. Negligible overhead.
 (setq use-package-compute-statistics t)
-(setq use-package-always-ensure t) ;; Always ensures that a package is installed
 
 ;; Note: Org ELPA (orgmode.org/elpa) was retired in 2022 -- org ships from GNU ELPA.
 (setq package-archives '(("melpa" . "https://melpa.org/packages/") ;; Sets default package repositories
@@ -356,12 +355,7 @@
   (general-define-key
    "C-x b" '(consult-buffer :wk "Switch buffer")  ;; Replace default switch-to-buffer
    "C-x 4 b" '(consult-buffer-other-window :wk "Switch buffer other window")
-   "M-y" '(consult-yank-from-kill-ring :wk "Yank from kill ring")  ;; Better than yank-pop
-   "M-g i" '(consult-imenu :wk "Imenu")
-   "M-g o" '(consult-outline :wk "Outline")
-   "M-g m" '(consult-mark :wk "Jump to mark")
-   "M-g M" '(consult-global-mark :wk "Jump to global mark"))
-  )
+   "M-y" '(consult-yank-from-kill-ring :wk "Yank from kill ring")))  ;; Better than yank-pop
 
 ;; Protesilaos' ef-themes: a family of legible light/dark themes. ef-owl is
 ;; the default; the rest are available to consult-theme (C-c t t).
@@ -378,15 +372,8 @@
   :init
   (setq scroll-conservatively 101 ; Never recenter; scroll line-by-line at edges
         scroll-margin 4)          ; Keep 4 lines of context around point
-                                  ; (supported since ultra-scroll v0.7 -- it
-                                  ; suspends the margin during pixel scrolls)
+                                  ; (ultra-scroll suspends it during pixel scrolls)
   :config
-  ;; Older ultra-scroll (pre-0.7) can't suspend the margin and warns
-  ;; "scroll-margin = 0 is required for glitch-free smooth scrolling" when
-  ;; enabled. Detect that by the variable 0.7+ uses to stash the margin, and
-  ;; fall back to 0 there; `M-x package-upgrade ultra-scroll' restores the margin.
-  (unless (boundp 'ultra-scroll--scroll-margin-orig)
-    (setq scroll-margin 0))
   (ultra-scroll-mode 1))
 
 (add-to-list 'default-frame-alist '(alpha-background . 98)) ;; For all new frames henceforth
@@ -559,7 +546,6 @@
 (add-hook 'eglot-managed-mode-hook #'start/eglot-capf)
 
 (use-package apheleia
-  :diminish apheleia-mode
   :hook (after-init . apheleia-global-mode)
   :config
   ;; Use ruff for Python (fast, modern). Override to 'black if a project prefers.
@@ -567,7 +553,6 @@
   (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff-isort ruff)))
 
 (use-package eldoc-box
-  :diminish eldoc-box-hover-at-point-mode
   :hook (eglot-managed-mode . eldoc-box-hover-at-point-mode)
   :custom
   (eldoc-echo-area-use-multiline-p nil) ;; Keep the echo area quiet; use the box
@@ -582,14 +567,12 @@
   :bind ("C-h D" . devdocs-lookup))
 
 (use-package aggressive-indent
-  :diminish aggressive-indent-mode
   :hook (emacs-lisp-mode . aggressive-indent-mode))
 
 (use-package highlight-defined
   :hook (emacs-lisp-mode . highlight-defined-mode))
 
 (use-package yasnippet
-  :diminish yas-minor-mode
   :hook (prog-mode . yas-minor-mode))
 
 (use-package yasnippet-snippets
@@ -601,7 +584,6 @@
   (yasnippet-capf-lookup-by 'key)) ;; Match on snippet key (not name)
 
 (use-package envrc
-  :diminish envrc-mode
   :hook (after-init . envrc-global-mode))
 
 ;; setopt (not setq) so the custom setter of treesit-enabled-modes runs.
@@ -640,7 +622,16 @@
   (org-mode . org-indent-mode)
   (org-mode . start/org-no-angle-pair)
   :config
-  (make-directory org-directory t))  ;; Ensure ~/org exists so capture/agenda just work
+  (make-directory org-directory t)  ;; Ensure ~/org exists so capture/agenda just work
+  ;; org-tempo is a module inside org, not a package: `<s TAB' expands to a src block.
+  (require 'org-tempo))
+
+(use-package toc-org
+  :hook (org-mode . toc-org-mode))
+
+(use-package org-modern
+  :hook (org-mode . org-modern-mode)
+  :custom (org-modern-block-fringe nil))
 
 (use-package markdown-mode
   :mode (("\\.md\\'"  . gfm-mode)
@@ -655,7 +646,6 @@
   (markdown-hide-markup t))
 
 (use-package valign
-  :ensure t
   :hook (markdown-mode . valign-mode)
   :custom (valign-fancy-bar t))
 
@@ -819,22 +809,9 @@ drops overlay strings anchored inside invisible text."
             (push '("|>" . ?\u25B7) prettify-symbols-alist)  ;; ▷
             (prettify-symbols-mode 1)))
 
-(use-package toc-org
-  :commands toc-org-enable
-  :hook (org-mode . toc-org-mode))
-
-(use-package org-modern
-  :hook (org-mode . org-modern-mode)
-  :custom (org-modern-block-fringe nil))
-
-(use-package org-tempo
-  :ensure nil
-  :after org
-  :demand t)
-
 (defun start/get-authinfo-secret (host user)
-  "Retrieves and returns the secret from .authinfo given a host and user parameters.
-Returns nil if no matching entry is found."
+  "Return the secret from .authinfo for HOST and USER, or nil if none.
+Not interactive on purpose: an interactive call would echo the key."
   ;; Store credentials in ~/.authinfo as:
   ;;   machine api.mistral.ai login bearer password api-key-goes-here
   (let* ((auth-data (car (auth-source-search :max 1 :host host :user user)))
@@ -842,13 +819,11 @@ Returns nil if no matching entry is found."
     (and secret-function (funcall secret-function))))
 
 (defun start/api-mistral-get-bearer-token ()
-  "Retrieves and returns the bearer token for Mistral API."
-  (interactive)
+  "Return the bearer token for the Mistral API."
   (start/get-authinfo-secret "api.mistral.ai" "bearer"))
 
 (defun start/codestral-mistral-get-bearer-token ()
-  "Retrieves and returns the bearer token for Mistral Codestral API."
-  (interactive)
+  "Return the bearer token for the Mistral Codestral API."
   (start/get-authinfo-secret "codestral.mistral.ai" "bearer"))
 
 (use-package gptel
@@ -881,20 +856,19 @@ Returns nil if no matching entry is found."
    ("M-e" . #'minuet-dismiss-suggestion))
 
   :init
-  ;; if you want to enable auto suggestion.
-  ;; Note that you can manually invoke completions without enable minuet-auto-suggestion-mode
-  (add-hook 'prog-mode-hook #'minuet-auto-suggestion-mode)
-
+  ;; Auto-suggest only when the Codestral key exists. Without the guard the
+  ;; mode would start in every prog buffer with no provider and fail on each
+  ;; attempt. Suggestions can still be invoked by hand (M-i) either way.
+  (when (start/codestral-mistral-get-bearer-token)
+    (add-hook 'prog-mode-hook #'minuet-auto-suggestion-mode))
   :config
-  ;; Only configure if API key is available
   (let ((api-key (start/codestral-mistral-get-bearer-token)))
     (when api-key
       (setenv "CODESTRAL_API_KEY" api-key)
-      ;; You can use M-x minuet-configure-provider to interactively configure provider and model
+      ;; M-x minuet-configure-provider switches provider/model interactively.
       (setq minuet-provider 'codestral)
       (minuet-set-optional-options minuet-codestral-options :stop ["\n\n"])
-      (minuet-set-optional-options minuet-codestral-options :max_tokens 256)))
-  )
+      (minuet-set-optional-options minuet-codestral-options :max_tokens 256))))
 
 (use-package shell-maker
   :defer t)
@@ -1188,8 +1162,66 @@ nov's own commands so they cross chapter boundaries."
 (use-package diredfl
   :hook (dired-mode . diredfl-mode))
 
+(use-package speedbar
+  :ensure nil
+  :custom
+  (speedbar-window-default-width 25)  ;; Emacs 31: side-window width...
+  (speedbar-window-max-width 25)      ;; ...and cap so it doesn't fight other windows
+  (speedbar-show-unknown-files t)     ;; Show all files, not just "supported" ones
+  (speedbar-prefer-window t)          ;; Emacs 31.1: M-x speedbar docks too, instead of a frame
+  ;; NERDTree-ish behavior and looks
+  (speedbar-update-flag t)            ;; Follow mode: tree tracks the buffer you're in
+  (speedbar-use-images nil)           ;; Text [+]/[-] instead of the 1997 GIF icons
+  (speedbar-indentation-width 2)      ;; Default 1 is too cramped to read the tree
+  (speedbar-hide-button-brackets-flag t)              ;; "+" instead of "<+>"
+  (speedbar-query-confirmation-method 'none-but-delete) ;; Only confirm deletions
+  :bind (("C-x t s" . speedbar-window)
+         :map speedbar-file-key-map
+         ("N" . start/speedbar-create-file)) ;; NERDTree "ma": new file in dir at point
+  :init
+  (defun start/speedbar-create-file (file)
+    "Create FILE (default: directory at point) and open it."
+    (interactive
+     (list (read-file-name "Create file: " (speedbar-line-directory))))
+    (make-directory (file-name-directory (expand-file-name file)) t)
+    (unless (file-exists-p file)
+      (write-region "" nil file))
+    (speedbar-refresh)
+    (speedbar-find-file-in-frame (expand-file-name file)))
+  :config
+  ;; `speedbar-find-file-in-frame' is still frame-era code: with the docked
+  ;; side window it ends up calling `switch-to-buffer' from Speedbar's
+  ;; *dedicated* window, which falls back to display-buffer and splits the
+  ;; editing area (files then alternate between the two panes). Open files
+  ;; in the most recently used editing window instead; a buffer already on
+  ;; screen just gets its window selected (reuse-window).
+  (defun start/speedbar-find-file (orig file)
+    (if (and (fboundp 'speedbar-window--live-p) (speedbar-window--live-p))
+        (select-window
+         (display-buffer (find-file-noselect file)
+                         '((display-buffer-reuse-window
+                            display-buffer-use-some-window)
+                           (some-window . mru))))
+      (funcall orig file)))  ;; Old floating-frame speedbar keeps old behavior
+  (advice-add 'speedbar-find-file-in-frame :around #'start/speedbar-find-file)
+
+  ;; Upstream bug #2: `speedbar-window-mode' never puts its buffer in
+  ;; `speedbar-mode' (the keymap is grafted separately), so the buffer-local
+  ;; dframe mouse handlers -- which only the mode body sets -- stay nil and
+  ;; every mouse click is silently dropped. Wire them up ourselves. We don't
+  ;; call (speedbar-mode) instead: it would wipe the buffer-local kill-hook
+  ;; and hscroll setup that speedbar-window-mode installs.
+  (defun start/speedbar-window-enable-mouse (&rest _)
+    (when (and (boundp 'speedbar-buffer) (buffer-live-p speedbar-buffer))
+      (with-current-buffer speedbar-buffer
+        (setq dframe-help-echo-function #'speedbar-item-info
+              dframe-mouse-click-function #'speedbar-click
+              dframe-mouse-position-function #'speedbar-position-cursor-on-line
+              truncate-lines t))))  ;; Mode body would set this too; don't wrap long names
+  (advice-add 'speedbar-window-mode :after #'start/speedbar-window-enable-mouse))
+
 (use-package magit
-  :commands magit-status
+  :defer t   ;; Autoloaded; :custom alone would load it at startup
   :custom
   ;; Open the status buffer full-frame, and restore the previous window
   ;; layout when you bury it (q).
@@ -1212,7 +1244,7 @@ nov's own commands so they cross chapter boundaries."
   (corfu-separator ?\s)             ;; Orderless field separator, use M-SPC
   (corfu-preview-current nil)       ;; Don't insert completion without confirmation
   (completion-ignore-case t)
-  (text-mode-ispell-word-completion nil)  ;; Use cape-dict instead (Emacs 30+)
+  (text-mode-ispell-word-completion nil)  ;; No ispell word completion in text buffers (Emacs 30+)
   (tab-always-indent 'complete)
   :init
   (global-corfu-mode))
@@ -1224,8 +1256,7 @@ nov's own commands so they cross chapter boundaries."
 (use-package cape
   :after corfu
   :init
-  ;; Fallbacks, tried in reverse order of addition (dict last).
-  (add-to-list 'completion-at-point-functions #'cape-dict)
+  ;; Fallbacks, tried in reverse order of addition (file last).
   (add-to-list 'completion-at-point-functions #'cape-file)
   (add-to-list 'completion-at-point-functions #'cape-elisp-block)
   :config
@@ -1296,15 +1327,12 @@ nov's own commands so they cross chapter boundaries."
   (setq consult-find-args "find . -not ( -path '*/.git/*' -prune )")
   (setq consult-fd-args "fd --hidden --exclude .git --full-path --color=never")
   :config
-  ;; Project root comes from project.el (`consult-project-function' defaults
-  ;; to `project-current'); no override needed now that projectile is gone.
-  ;; Enable live preview for the find commands (some default to manual M-.)
+  ;; Live preview for the find commands (they default to manual M-.).
+  (consult-customize consult-find consult-fd :preview-key 'any)
   (with-eval-after-load 'consult-project-extra
     (consult-customize
      consult-project-extra-find
      consult-project-extra-find-other-window
-     consult-find
-     consult-fd
      :preview-key 'any)))
 
 (use-package embark
@@ -1327,66 +1355,6 @@ nov's own commands so they cross chapter boundaries."
          ("C-h k" . helpful-key)
          ("C-h x" . helpful-command)))
 
-(use-package speedbar
-  :ensure nil
-  :custom
-  (speedbar-window-default-width 25)  ;; Emacs 31: side-window width...
-  (speedbar-window-max-width 25)      ;; ...and cap so it doesn't fight other windows
-  (speedbar-show-unknown-files t)     ;; Show all files, not just "supported" ones
-  (speedbar-prefer-window t)          ;; Emacs 31.1: M-x speedbar docks too, instead of a frame
-  ;; NERDTree-ish behavior and looks
-  (speedbar-update-flag t)            ;; Follow mode: tree tracks the buffer you're in
-  (speedbar-use-images nil)           ;; Text [+]/[-] instead of the 1997 GIF icons
-  (speedbar-indentation-width 2)      ;; Default 1 is too cramped to read the tree
-  (speedbar-hide-button-brackets-flag t)              ;; "+" instead of "<+>"
-  (speedbar-query-confirmation-method 'none-but-delete) ;; Only confirm deletions
-  :bind (("C-x t s" . speedbar-window)
-         :map speedbar-file-key-map
-         ("N" . start/speedbar-create-file)) ;; NERDTree "ma": new file in dir at point
-  :init
-  (defun start/speedbar-create-file (file)
-    "Create FILE (default: directory at point) and open it."
-    (interactive
-     (list (read-file-name "Create file: " (speedbar-line-directory))))
-    (make-directory (file-name-directory (expand-file-name file)) t)
-    (unless (file-exists-p file)
-      (write-region "" nil file))
-    (speedbar-refresh)
-    (speedbar-find-file-in-frame (expand-file-name file)))
-  :config
-  ;; `speedbar-find-file-in-frame' is still frame-era code: with the docked
-  ;; side window it ends up calling `switch-to-buffer' from Speedbar's
-  ;; *dedicated* window, which falls back to display-buffer and splits the
-  ;; editing area (files then alternate between the two panes). Open files
-  ;; in the most recently used editing window instead; a buffer already on
-  ;; screen just gets its window selected (reuse-window).
-  (defun start/speedbar-find-file (orig file)
-    (if (and (fboundp 'speedbar-window--live-p) (speedbar-window--live-p))
-        (select-window
-         (display-buffer (find-file-noselect file)
-                         '((display-buffer-reuse-window
-                            display-buffer-use-some-window)
-                           (some-window . mru))))
-      (funcall orig file)))  ;; Old floating-frame speedbar keeps old behavior
-  (advice-add 'speedbar-find-file-in-frame :around #'start/speedbar-find-file)
-
-  ;; Upstream bug #2: `speedbar-window-mode' never puts its buffer in
-  ;; `speedbar-mode' (the keymap is grafted separately), so the buffer-local
-  ;; dframe mouse handlers -- which only the mode body sets -- stay nil and
-  ;; every mouse click is silently dropped. Wire them up ourselves. We don't
-  ;; call (speedbar-mode) instead: it would wipe the buffer-local kill-hook
-  ;; and hscroll setup that speedbar-window-mode installs.
-  (defun start/speedbar-window-enable-mouse (&rest _)
-    (when (and (boundp 'speedbar-buffer) (buffer-live-p speedbar-buffer))
-      (with-current-buffer speedbar-buffer
-        (setq dframe-help-echo-function #'speedbar-item-info
-              dframe-mouse-click-function #'speedbar-click
-              dframe-mouse-position-function #'speedbar-position-cursor-on-line
-              truncate-lines t))))  ;; Mode body would set this too; don't wrap long names
-  (advice-add 'speedbar-window-mode :after #'start/speedbar-window-enable-mouse))
-
-(use-package diminish)
-
 (use-package rainbow-delimiters
   :hook (prog-mode . rainbow-delimiters-mode))
 
@@ -1394,7 +1362,6 @@ nov's own commands so they cross chapter boundaries."
   :ensure nil
   :init
   (which-key-mode 1)
-  :diminish
   :custom
   (which-key-use-C-h-commands nil)  ;; Leave C-h-after-prefix to embark's searchable menu (see Embark)
   (which-key-side-window-location 'bottom)
@@ -1407,17 +1374,14 @@ nov's own commands so they cross chapter boundaries."
   (which-key-allow-imprecise-window-fit nil)) ;; Fixes which-key window slipping out in Emacs Daemon
 
 (use-package ws-butler
-  :diminish ws-butler-mode
   :init (ws-butler-global-mode))
 
 (use-package eldoc
   :ensure nil
-  :diminish
   :custom
   (eldoc-help-at-pt t)) ;; Emacs 31: show help-at-point (flymake etc.) via eldoc
 
 (use-package gcmh
-  :diminish gcmh-mode
   :hook (after-init . gcmh-mode)
   :custom
   (gcmh-idle-delay 5)
