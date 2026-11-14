@@ -391,15 +391,15 @@
 
 (add-to-list 'default-frame-alist '(alpha-background . 98)) ;; For all new frames henceforth
 
+;; `:family' rather than `:font': a family name needs no display to resolve,
+;; so this also works when the daemon loads init.el before any frame exists,
+;; and emacsclient frames come out right. Don't add a `font' entry to
+;; `default-frame-alist' for this: a frame font without a size means the
+;; font's default 12pt, and the initial frame re-applies it after init,
+;; silently overriding the height set here.
 (set-face-attribute 'default nil
-                    :font "JetBrainsMono Nerd Font" ;; Set your favorite type of font or download JetBrains Mono
-                    :height 110
-                    :weight 'medium)
-;; This sets the default font on all graphical frames created after restarting Emacs.
-;; Does the same thing as 'set-face-attribute default' above, but emacsclient fonts
-;; are not right unless I also add this method of setting the default font.
-
-(add-to-list 'default-frame-alist '(font . "JetBrainsMono Nerd Font")) ;; Set your favorite font
+                    :family "JetBrainsMono Nerd Font"
+                    :height 110)           ;; Tenths of a point: 110 is 11pt
 (setq-default line-spacing 0.2)
 
 (use-package doom-modeline
@@ -824,7 +824,8 @@ drops overlay strings anchored inside invisible text."
   :hook (org-mode . toc-org-mode))
 
 (use-package org-modern
-  :hook (org-mode . org-modern-mode))
+  :hook (org-mode . org-modern-mode)
+  :custom (org-modern-block-fringe nil))
 
 (use-package org-tempo
   :ensure nil
@@ -1039,6 +1040,42 @@ Tokens: %f current file, %t test name at point, %l line, %d project root.")
 
 (add-hook 'text-mode-hook #'visual-line-mode)
 (add-hook 'text-mode-hook #'visual-wrap-prefix-mode)
+
+(defun start/copy-code-block ()
+  "Copy the body of the code block at point, without its fence lines."
+  (interactive)
+  (let ((body
+         (cond
+          ((derived-mode-p 'org-mode)
+           (let ((el (org-element-at-point)))
+             (when (memq (org-element-type el) '(src-block example-block))
+               (org-remove-indentation (org-element-property :value el)))))
+          ((derived-mode-p 'markdown-mode)
+           (pcase (markdown-code-block-at-point-p)
+             (`(,beg ,end)
+              (save-excursion
+                (goto-char beg)
+                (if (looking-at-p "[ \t]*\\(?:```\\|~~~\\)")
+                    ;; Fenced: BEG is the opening fence line and END the end of
+                    ;; the closing one, so the body is the lines in between.
+                    (progn
+                      (forward-line 1)
+                      (let ((body-beg (point)))
+                        (goto-char end) (forward-line 0)
+                        (buffer-substring-no-properties body-beg (point))))
+                  ;; Indented (four spaces / a tab): no fences, strip the indent.
+                  (replace-regexp-in-string
+                   "^\\(?:    \\|\t\\)" ""
+                   (buffer-substring-no-properties beg end))))))))))
+    (if body
+        (progn (kill-new body)
+               (message "Copied %d lines" (length (split-string body "\n" t))))
+      (user-error "Not inside a code block"))))
+
+(with-eval-after-load 'org
+  (keymap-set org-mode-map "C-c w" #'start/copy-code-block))
+(with-eval-after-load 'markdown-mode
+  (keymap-set markdown-mode-map "C-c w" #'start/copy-code-block))
 
 (use-package nov
     :mode ("\\.epub\\'" . nov-mode)
