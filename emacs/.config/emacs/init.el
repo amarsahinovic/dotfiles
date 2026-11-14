@@ -393,7 +393,7 @@
 
 (set-face-attribute 'default nil
                     :font "JetBrainsMono Nerd Font" ;; Set your favorite type of font or download JetBrains Mono
-                    :height 120
+                    :height 110
                     :weight 'medium)
 ;; This sets the default font on all graphical frames created after restarting Emacs.
 ;; Does the same thing as 'set-face-attribute default' above, but emacsclient fonts
@@ -659,6 +659,15 @@
   :hook (markdown-mode . valign-mode)
   :custom (valign-fancy-bar t))
 
+(defun start/markdown-truncate-if-table ()
+  "Truncate lines when the buffer has a pipe table, so valign can align it."
+  (when (save-excursion
+          (goto-char (point-min))
+          (re-search-forward "^[ \t]*|.*|[ \t]*$" nil t))
+    (setq-local truncate-lines t)))
+
+(add-hook 'markdown-mode-hook #'start/markdown-truncate-if-table)
+
 (defvar start/markdown-mermaid-cache-dir
     (no-littering-expand-var-file-name "mermaid/")
     "Where rendered diagrams are kept, named by a hash of their source.")
@@ -721,12 +730,20 @@ drops overlay strings anchored inside invisible text."
                (dolist (cb callbacks)
                  (funcall cb (and ok png) output))))))))))
 
-  (defun start/markdown-mermaid--show (ov display)
-    "Put DISPLAY (an image or a string) on its own line below overlay OV."
+  (defun start/markdown-mermaid--show (ov display &optional png)
+    "Put DISPLAY (an image or a string) on its own line below overlay OV.
+  When PNG is given, clicking the image opens that file in `image-mode'
+  in another window, where it can be viewed at full size and zoomed."
     (overlay-put ov 'after-string
                  (concat (if (stringp display)
                              display
-                           (propertize " " 'display display))
+                           (propertize " " 'display display
+                                       'help-echo "mouse-1: open diagram full size"
+                                       'keymap (let ((map (make-sparse-keymap)))
+                                                 (define-key map [mouse-1]
+                                                   (lambda () (interactive)
+                                                     (find-file-other-window png)))
+                                                 map)))
                          "\n")))
 
   (defun start/markdown-mermaid--overlays ()
@@ -738,7 +755,12 @@ drops overlay strings anchored inside invisible text."
     "Show every mermaid block in the buffer as an image below its source."
     (interactive)
     (let ((stale (start/markdown-mermaid--overlays))
-          (width (when-let* ((win (get-buffer-window))) (window-body-width win t))))
+          (win (get-buffer-window))
+          (width (when win (window-body-width win t)))
+          ;; Cap the height too: an image taller than the window makes a
+          ;; display line that can never fit, and redisplay then yanks the
+          ;; window back every time you try to scroll up past it.
+          (height (when win (floor (* 0.8 (window-body-height win t))))))
       (pcase-dolist (`(,beg ,end ,source) (start/markdown-mermaid--blocks))
         ;; Reuse the block's overlay so the old image stays up until the new
         ;; one is ready, instead of flashing a placeholder on every save.
@@ -759,13 +781,15 @@ drops overlay strings anchored inside invisible text."
                         (equal (overlay-get ov 'start/mermaid) source))
                (start/markdown-mermaid--show
                 ov (if png
-                       (create-image png 'png nil :max-width width
+                       (create-image png 'png nil
+                                     :max-width width :max-height height
                                      :scale (/ (image-compute-scaling-factor) 2.0))
                      ;; Mermaid's message, minus the JS stack trace under it.
                      (propertize
                       (concat "mermaid: "
                               (substring output 0 (string-match "\n.*://" output)))
-                      'face 'error))))))))
+                      'face 'error))
+                png))))))
       (mapc #'delete-overlay stale)))
 
   (define-minor-mode start/markdown-mermaid-mode
