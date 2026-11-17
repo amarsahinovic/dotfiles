@@ -1165,7 +1165,7 @@ drops overlay strings anchored inside invisible text."
   (defun start/markdown-mermaid-render ()
     "Show every mermaid block in the buffer as an image below its source."
     (interactive)
-    (let ((stale (start/markdown-mermaid--overlays))
+    (let* ((stale (start/markdown-mermaid--overlays))
           (win (get-buffer-window))
           (width (when win (window-body-width win t)))
           ;; Cap the height too: an image taller than the window makes a
